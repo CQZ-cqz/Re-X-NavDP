@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "selection_seed": 17,
+  "cluttered_easy_train": [
+    "easy_0",
+    "easy_1",
+    "easy_2",
+    "easy_3",
+    "easy_4",
+    "easy_5",
+    "easy_7",
+    "easy_9"
+  ],
+  "cluttered_easy_eval": [
+    "easy_6",
+    "easy_8"
+  ],
+  "cluttered_hard_train": [
+    "hard_0",
+    "hard_1",
+    "hard_2",
+    "hard_3",
+    "hard_4",
+    "hard_5",
+    "hard_7",
+    "hard_9"
+  ],
+  "cluttered_hard_eval": [
+    "hard_6",
+    "hard_8"
+  ]
+}

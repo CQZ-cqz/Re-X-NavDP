@@ -1,0 +1,150 @@
+visual_encoder:
+  type: yolo26_depth
+  model_name: yolo26n-depth
+  weights: ../checkpoints/yolo26n-depth.pt
+  feature_layer: depth_head_p3
+  image_size: [384, 640]   # native D455 640x360 letterboxed to 32-multiple (H,W)
+  grid_size: 8
+  frozen: true
+  # compile_mode: default   # optional: fuse CNN graph (~1.5x)
+  # depth_augmentation:
+  #   enabled: false
+  # --- DA-V2 baseline: set type: depth_anything_v2, model: depth-anything-v2-vits, image_size: 224 ---
+
+# MPC-free direct tracker (ReX-NavDP): the policy commands [v, w] directly.
+# The residual config (reactive_rgbd_g1.yaml) is left untouched as the baseline.
+policy:
+  token_dim: 384
+  grid_size: 8
+  model_dim: 128
+  path_points: 8
+  state_dim: 32          # direct observation schema (observation.DIRECT_STATE_FIELDS)
+  queries: 8
+  heads: 4
+  hidden_dim: 128
+  init_std_v: 0.15       # conservative exploration when fine-tuning the BC actor
+  init_std_w: 0.20
+  std_min: 0.05
+  std_max: 0.8
+  mean_limit: 3.0        # mu = 3*tanh(mu_raw/3)
+runtime:
+  control_dt: 0.04       # 25 Hz
+  feature_period_s: 0.10 # 10 Hz RGB-D
+  max_plan_age_s: 3.0
+  max_rgbd_age_s: 0.5
+actions:
+  max_v: 0.5
+  max_w: 0.5
+  acceleration_v: 1.0    # |dv| <= 1.0*dt
+  acceleration_w: 2.0    # |dw| <= 2.0*dt
+  coupled_radius: 1.10   # sqrt((v/max_v)^2+(w/max_w)^2) <= 1.10
+training:
+  num_envs: 1            # overridden by train_direct_tracker.py --num-envs
+  rollout_steps: 256     # 10.24 s/env at 25 Hz: covers avoidance and path rejoin
+ppo:
+  num_learning_epochs: 4
+  # One recurrent environment sequence per mini-batch at num_envs=8. This
+  # keeps all rollout samples/epochs while avoiding the attention activation
+  # peak produced by batching two 256-step sequences together.
+  num_mini_batches: 8
+  learning_rate: 0.0001
+  entropy_coef: 0.001
+  gamma: 0.99            # ~4 s physical discount at 25 Hz (keeps value stable)
+  lam: 0.95
+  clip_param: 0.2
+  max_grad_norm: 1.0
+  schedule: adaptive
+  desired_kl: 0.01
+x_navdp_checkpoint: checkpoints/x-navdp_posttrain.ckpt
+navigation_training:
+  planner_period_s: 0.5
+  episode_seconds: 60.0
+  # G1 curriculum success calibrated from direct/MPC control traces.
+  # NOTE: do NOT hard-jump these toward the eval strict values (0.30/0.05/0.10/
+  # 0.50) and resume PPO — the reward change desyncs the resumed critic and the
+  # policy collapses (all episodes fall). Use a curriculum anneal or a fresh
+  # critic (--bc-init) if tightening is needed.
+  success_distance_m: 0.35
+  success_speed_mps: 0.12
+  success_yaw_rate: 0.40
+  success_hold_s: 0.25
+  # Feet/ankles are excluded by G1_COLLISION_LINK_REGEX, so a lower threshold
+  # catches arm, palm, torso and leg brushes without flagging normal steps.
+  collision_force_n: 3.0
+  contact_grace_s: 0.5
+  collision_hold_seconds: 0.5
+  fall_height_m: 0.35
+  stall_seconds: 8.0
+  stall_speed_mps: 0.05
+  depth_floor_crop_fraction: 0.30
+  clearance_percentile: 0.1
+  # Depth is projected into a 1.10 m wide swept-body safety corridor.
+  clearance_half_width_m: 0.55
+  depth_fx_px: 326.39856
+  depth_cx_px: 321.79215
+  depth_calibration_width_px: 640
+  clearance_hard_m: 0.25
+  ttc_min_closing_speed_mps: 0.05
+  # oob_min/oob_max are injected at runtime from the scene ESDF bounding box
+  # (see train_direct_tracker.py load_navigable_bounds); no radius-from-origin.
+reward:
+  weight_progress_s: 1.0
+  weight_progress_g: 0.0 # goal direction belongs to X-NavDP; avoids fighting recovery paths
+  weight_tracking_recovery: 2.0
+  weight_tracking_corridor: 1.0
+  tracking_free_band: 0.08
+  tracking_error_scale: 0.22
+  # Smoke calibration: dense safety cost is about 45% of positive path
+  # progress instead of overwhelming it. The 0.60 m danger gate below stays
+  # conservative so tracking constraints relax before this cost ramps up.
+  weight_clearance: 0.75
+  clearance_ref: 0.65
+  clearance_hard: 0.25
+  weight_ttc: 0.40
+  ttc_ref: 1.5
+  weight_smoothness: 0.05
+  smooth_dv: 1.0
+  smooth_dw: 2.0
+  # Terminal controller shaping. Between 0.80 m and 0.35 m, path rewards fade
+  # into PointGoal progress and a distance-dependent speed target. Inside the
+  # success radius, path progress is disabled and stopping takes precedence.
+  goal_approach_distance: 0.80
+  # Goal progress remains active inside the success radius, so moving from the
+  # edge toward the PointGoal retains a dense positive signal while stopping.
+  weight_goal_approach_progress: 2.0
+  weight_goal_approach_speed: 0.5
+  goal_approach_yaw_rate_max: 0.50
+  # Penalize only motion above the success limits, using scales close to the
+  # actual stopping tolerances instead of the 0.5 m/s action bound.
+  weight_goal_stop: 0.2
+  goal_stop_speed_scale: 0.10
+  goal_stop_yaw_rate_scale: 0.20
+  # Measured acceleration is delayed relative to the action; keep this
+  # difference reward small so it cannot dominate or encourage oscillation.
+  weight_goal_brake: 0.25
+  goal_brake_delta_clip: 0.05
+  # Continuous positive capture basin: closer, slower states receive more
+  # reward before the hard success/hold event becomes reachable.
+  weight_goal_capture: 2.0
+  goal_capture_distance_scale: 0.22
+  goal_capture_speed_scale: 0.15
+  goal_capture_yaw_rate_scale: 0.35
+  # Immediate credit for holding a near-zero command while G1 settles.
+  weight_goal_command_stop: 0.05
+  goal_command_speed_scale: 0.15
+  goal_command_yaw_rate_scale: 0.40
+  weight_goal_hold: 2.0
+  goal_stop_distance: 0.35
+  goal_stop_speed: 0.12
+  goal_stop_yaw_rate: 0.40
+  weight_stall: 0.10
+  weight_time: 0.01
+  weight_success: 10.0
+  weight_contact: 2.0
+  weight_collision: 10.0
+  weight_fall: 10.0
+  weight_oob: 10.0
+  max_v: 0.5
+  danger_clearance: 0.75
+  danger_ttc: 2.0
+  g_safe: 0.1

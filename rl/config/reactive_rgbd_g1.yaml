@@ -1,0 +1,72 @@
+visual_encoder:
+  type: depth_anything_v2  # switch to yolo26_depth after providing local weights
+  model: depth-anything-v2-vits
+  frozen: true
+  # YOLO26 example (policy token_dim is resolved from P3 automatically):
+  # type: yolo26_depth
+  # model_name: yolo26n-depth
+  # weights: checkpoints/yolo26n-depth.pt
+  # feature_layer: depth_head_p3
+  # image_size: 224
+  # grid_size: 8
+  # depth_augmentation:
+  #   enabled: false
+
+# Current RGB and depth, not an eight-frame RGB observation.
+policy:
+  token_dim: 384
+  grid_size: 8
+  model_dim: 128
+  path_points: 8
+  state_dim: 28
+  queries: 8
+  heads: 4
+  hidden_dim: 128
+  init_std: 0.1
+runtime:
+  control_dt: 0.04
+  feature_period_s: 0.10
+  max_plan_age_s: 3.0
+  max_rgbd_age_s: 0.5
+  max_nominal_age_s: 0.3
+actions:
+  max_v: 0.5
+  max_w: 0.5
+  normal_delta_v: 0.15
+  normal_delta_w: 0.25
+  acceleration_v: 1.0
+  acceleration_w: 2.0
+training:
+  num_envs: 1  # overridden by train_reactive.py --num-envs (default 1; raise for vectorized training)
+  rollout_steps: 64
+ppo:
+  num_learning_epochs: 4
+  num_mini_batches: 4
+  learning_rate: 0.0003
+  entropy_coef: 0.005
+  gamma: 0.99
+  lam: 0.95
+  clip_param: 0.2
+  max_grad_norm: 1.0
+  schedule: fixed
+
+# One-step training starts with a single G1; no macro-transition replay buffer.
+x_navdp_checkpoint: checkpoints/x-navdp_posttrain.ckpt
+navigation_training:
+  planner_period_s: 0.5
+  episode_seconds: 30.0
+  success_distance_m: 0.25
+  success_speed_mps: 0.10
+  success_hold_s: 0.4
+  collision_force_n: 8.0
+  contact_grace_s: 0.5
+  fall_height_m: 0.35
+reward:
+  progress: 5.0
+  collision: 5.0
+  fall: 5.0
+  success: 10.0
+  tracking: 0.2
+  smoothness: 0.02
+  residual: 0.05
+  time: 0.01

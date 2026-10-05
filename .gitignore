@@ -1,0 +1,53 @@
+# Local environments and generated Python files
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+
+# Experiment products and externally supplied assets
+outputs/
+logs/
+checkpoints/*
+!checkpoints/README.md
+ckpt/
+video/
+vis_output/
+*.pt
+*.pth
+*.ckpt
+*.npz
+*.npy
+*.mp4
+*.log
+*.usd
+*.usdc
+*.usda
+*.tar.gz
+*.zip
+*.onnx
+*.engine
+.c_generated_code/
+c_generated_code/
+.x-navdp/
+x-navdp/data/scenes/
+x-navdp/data/GRScenes-100/
+.pytest_cache/
+
+# Dev-only artifacts: not part of the published repository
+docs/
+experiments/
+# Fragmented pipeline/capture tests stay local; keep only the core regression set.
+tests/*
+!tests/test_flow_generator.py
+!tests/test_fm_data.py
+!tests/test_fm_rtc.py
+!tests/test_fm_deploy.py
+!tests/test_ddim_sampling.py
+!tests/test_visual_encoders.py
+!tests/test_repository_layout.py
+!tests/test_recovery.py
+!tests/test_timed_stuck.py
