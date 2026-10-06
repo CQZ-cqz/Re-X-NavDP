@@ -772,13 +772,20 @@ def cmd_train_all_candidates():
                    help="distribution-loss spread-matching weight (0 disables)")
     p.add_argument("--dist-rows", type=int, default=4, help="rows sampled for the distribution loss")
     p.add_argument("--dist-steps", type=int, default=4, help="Euler steps for the distribution-loss samples")
+    p.add_argument("--sinkhorn-lambda", type=float, default=0.0,
+                   help="Sinkhorn OT loss weight (0 disables)")
+    p.add_argument("--sinkhorn-eps", type=float, default=0.1,
+                   help="Sinkhorn entropy regularization")
+    p.add_argument("--sinkhorn-iters", type=int, default=20, help="Sinkhorn-Knopp iterations")
     args = p.parse_args()
     if min(args.steps, args.per_scene, args.candidate_microbatch, args.eval_every,
-           args.val_per_scene, args.log_every, args.dist_rows, args.dist_steps) < 1 or \
-       not 0 < args.min_lr <= args.lr < 1:
+           args.val_per_scene, args.log_every, args.dist_rows, args.dist_steps,
+           args.sinkhorn_iters) < 1 or not 0 < args.min_lr <= args.lr < 1:
         p.error("positive counts and 0 < min-lr <= lr < 1 required")
     if args.dist_lambda_mu < 0 or args.dist_lambda_sigma < 0:
         p.error("distribution-loss lambdas must be nonnegative")
+    if args.sinkhorn_lambda < 0 or args.sinkhorn_eps <= 0:
+        p.error("sinkhorn-lambda must be nonnegative and sinkhorn-eps positive")
     if args.snapshot and not args.labels:
         p.error("--labels required with --snapshot")
     for name in ("snapshot", "labels", "dataset", "output", "init_checkpoint", "resume"):
@@ -821,6 +828,8 @@ def cmd_train_all_candidates():
             "total_steps": args.steps, "seed": args.seed,
             "dist_lambda_mu": args.dist_lambda_mu, "dist_lambda_sigma": args.dist_lambda_sigma,
             "dist_rows": args.dist_rows, "dist_steps": args.dist_steps,
+            "sinkhorn_lambda": args.sinkhorn_lambda, "sinkhorn_eps": args.sinkhorn_eps,
+            "sinkhorn_iters": args.sinkhorn_iters,
             "eval_every": args.eval_every, "val_per_scene": args.val_per_scene}
         if args.resume:
             if state["signature"] != signature:
@@ -890,6 +899,14 @@ def cmd_train_all_candidates():
                                                            lambda_mu=args.dist_lambda_mu,
                                                            lambda_sigma=args.dist_lambda_sigma)
                     dist_loss.backward()
+                sinkhorn_loss_val = None
+                if args.sinkhorn_lambda > 0:
+                    sink_rows = storage.sample_rows(groups, args.dist_rows, rng)
+                    sink_data = training.all_candidate_batch(cache, sink_rows)
+                    sinkhorn_loss_val = training.sinkhorn_loss(model, sink_data, "cuda:0", candidates=8,
+                                                               steps=args.dist_steps, eps=args.sinkhorn_eps,
+                                                               n_iter=args.sinkhorn_iters)
+                    (args.sinkhorn_lambda * sinkhorn_loss_val).backward()
                 norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1., error_if_nonfinite=True)
                 optimizer.step()
                 record = dict(step=step, train_loss=errors.mean().item(), grad_norm=float(norm), lr=lr,
@@ -899,6 +916,8 @@ def cmd_train_all_candidates():
                                 for s in scenes})
                 if dist_loss is not None:
                     record["dist_loss"] = float(dist_loss)
+                if sinkhorn_loss_val is not None:
+                    record["sinkhorn_loss"] = float(sinkhorn_loss_val)
                 if step % args.eval_every == 0 or step == args.steps:
                     record["validation"] = training.evaluate_candidates(model, cache, selected, "cuda:0",
                                                                         args.seed + 1000, args.candidate_microbatch)

@@ -549,6 +549,46 @@ def distribution_loss(model, data, device, *, candidates=8, steps=4,
     return lambda_mu * (mu_s - mu_t).square().mean() + lambda_sigma * (std_s - std_t).square().mean()
 
 
+def sinkhorn_distance(C, eps, n_iter=20):
+    """Entropy-regularized OT cost for [B, Ks, Kt] cost matrices, uniform marginals.
+
+    Log-domain Sinkhorn-Knopp; differentiable through ``C``. ``eps`` controls the
+    softness of the transport plan (small = hard one-to-one, large = soft/mass-
+    spreading). Returns a per-batch scalar in the same units as ``C``.
+    """
+    import torch
+    B, Ks, Kt = C.shape
+    if eps <= 0 or n_iter < 1:
+        raise ValueError("eps must be positive and n_iter positive")
+    log_K = -C / eps
+    log_a = -torch.log(torch.tensor(Ks, dtype=C.dtype, device=C.device))
+    log_b = -torch.log(torch.tensor(Kt, dtype=C.dtype, device=C.device))
+    log_u = torch.zeros(B, Ks, dtype=C.dtype, device=C.device)
+    log_v = torch.zeros(B, Kt, dtype=C.dtype, device=C.device)
+    for _ in range(n_iter):
+        log_u = log_a - torch.logsumexp(log_K + log_v[:, None, :], dim=2)
+        log_v = log_b - torch.logsumexp(log_K + log_u[:, :, None], dim=1)
+    P = torch.exp(log_u[:, :, None] + log_K + log_v[:, None, :])
+    return (P * C).sum(dim=(1, 2))
+
+
+def sinkhorn_loss(model, data, device, *, candidates=8, steps=4, eps=0.1, n_iter=20):
+    """Symmetric full-distribution matching between on-policy student samples and
+    the teacher candidates, via Sinkhorn OT on the cumulative XY trajectory ADE.
+
+    Unlike mean+std matching this sees the whole multimodal structure, and unlike
+    a one-sided hinge it penalizes both under- and over-spread. Training-only;
+    inference is unchanged. Differentiable through ``model.sample_with_grad``.
+    """
+    import torch
+    samples = model.sample_with_grad(data["goal_embed"].to(device), data["rgbd_embed"].to(device),
+                                     data["embodiment"].to(device), candidates=candidates, steps=steps)
+    s = samples.cumsum(-2)[..., :2] / 4
+    t = data["action_deltas"].to(device).cumsum(-2)[..., :2] / 4
+    C = (s[:, :, None] - t[:, None]).norm(dim=-1).mean(dim=-1)  # [B, Ks, Kt] trajectory ADE
+    return sinkhorn_distance(C, eps, n_iter).mean()
+
+
 def loss_diagnostics(errors, times, actions):
     """Distribution and overlapping motion/time groups, NOT fixed-slot modes.
 

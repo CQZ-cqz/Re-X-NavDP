@@ -1,6 +1,6 @@
 # Re-X-NavDP
 
-基于 [X-NavDP](https://github.com/InternRobotics/NavDP/tree/master/baselines/x-navdp) 的复现与二次开发。三条工作线共用同一套 X-NavDP 环境与权重：
+基于 [X-NavDP](https://github.com/InternRobotics/NavDP/tree/master/baselines/x-navdp) 的复现与二次开发。
 
 | 工作线 | 内容 | 主目录 |
 | --- | --- | --- |
@@ -99,7 +99,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=.:baselines/x-navdp python -m unittest discov
 
 ## 引用与致谢
 
-本仓库是 [NavDP](https://github.com/InternRobotics/NavDP) 及其后续工作 [X-NavDP](https://github.com/InternRobotics/NavDP/tree/master/baselines/x-navdp) 的**复现与二次开发**：三条工作线（RL 实时执行器、FM 候选生成器蒸馏、DDIM 少步采样）都建立在 NavDP / X-NavDP 的代码、场景与预训练权重之上。若本仓库对你的工作有帮助，请引用上游论文：
+本仓库是 [NavDP](https://github.com/InternRobotics/NavDP) 及其后续工作 [X-NavDP](https://github.com/InternRobotics/NavDP/tree/master/baselines/x-navdp) 的**个人学习**：三条工作线（RL 实时执行器、FM 候选生成器蒸馏、DDIM 少步采样）都建立在 NavDP / X-NavDP 的代码、场景与预训练权重之上。若本仓库对你的工作有帮助，请引用上游论文：
 
 **NavDP**（基础导航扩散策略，本仓库权重与骨干的来源）
 

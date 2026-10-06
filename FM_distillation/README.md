@@ -37,7 +37,17 @@ L_dist = λ_μ·‖μ_S−μ_T‖² + λ_σ·‖std_S−std_T‖²    # 都对�
 
 双向罚使学生在太窄（塌缩）和太宽（overshoot）时都被拉回，配合 latent 对齐把多样性从 ~0.15 稳定提到 ~0.27（教师 0.34），且不失控。采样经可微的 `sample_with_grad`（Euler ODE）反传。单边 hinge（`max(0, teacher−student)`）会 overshoot 到 0.53 且散错方向，已弃用。
 
-### 双分支蒸馏 / condition dropout（`fm_dual.py`，实验记录，未生效）
+3. **Sinkhorn OT loss**（`training.sinkhorn_loss`，`train-all-candidates --sinkhorn-lambda/--sinkhorn-eps/--sinkhorn-iters` 开启）：完整分布匹配——student 的 on-policy 轨迹 vs teacher 候选，构造轨迹 ADE 代价矩阵（如 8×8），用熵正则 OT（Sinkhorn-Knopp）度量两组集合的距离：
+
+```
+L_sink = <P, C>,   P = argmin_{P∈U(a,b)} <P,C> − ε·H(P)
+```
+
+比 mean+std 更完整（看见多峰结构），对称且双向，理论上更抗塌缩、也不 overshoot。ε 越小匹配越「硬」（ε→0 退化成不可微的 Hungarian），越大越平滑。纯训练侧，推理零影响。
+
+> **教师侧候选数可增大**：采集标注时把教师 `candidates` 从 8 提到 16/32，教师分布参考更密，OT/Sinkhorn 匹配更稳（学生侧仍可采 8 条，Sinkhorn 支持非对称边）。代价是标注/存储按比例增加，且离线 FM loss 的目标候选数也随之变多。
+
+### 双分支蒸馏
 
 `train-dual` 在 v1 标签上做 condition dropout（4 真实 goal + 4 零 token，回归同一批 pointgoal 轨迹），动机是保留 goal 无关先验、防塌缩。**实测与 8 候选等权打平（~0.16），未缓解塌缩**，故保留为实验记录、不作主路径：
 
