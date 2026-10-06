@@ -16,7 +16,7 @@ import time
 import numpy as np
 import torch
 
-sys.path.insert(0, str((Path(__file__).resolve().parents[2] / "x-navdp")))
+sys.path.insert(0, str((Path(__file__).resolve().parents[2] / "baselines/x-navdp")))
 from eval.src.policy_network_embodiment import NavDP_Policy_Embodiment
 
 

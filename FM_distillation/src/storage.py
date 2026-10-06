@@ -51,8 +51,8 @@ def writer_lock(directory):
 
 def condition_hashes(hashes):
     return {k: v for k, v in hashes.items()
-            if k.startswith(("eval/src/", "third_party/depth_anything/", "../FM_distillation/core/",
-                             "../bridge/", "../rl/core/", "../ddim/core/"))}
+            if k.startswith(("eval/src/", "third_party/depth_anything/", "../../FM_distillation/src/",
+                             "../../bridge/", "../../rl/src/", "../../ddim/src/"))}
 
 
 def verify_code(snapshot):
@@ -152,7 +152,7 @@ class LabelCache:
         self.capacity, self.cache = capacity, OrderedDict()
 
     def get(self, row):
-        from FM_distillation.core.fm_data import load_record, validate_label
+        from FM_distillation.src.fm_data import load_record, validate_label
         key = row["id"]
         if key not in self.cache:
             path = self.root / key

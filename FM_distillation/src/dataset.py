@@ -54,7 +54,7 @@ def manifest(run):
 
 
 def check_frozen(run):
-    from FM_distillation.core.fm_data import sha256
+    from FM_distillation.src.fm_data import sha256
     meta = manifest(run)
     if sha256(meta["checkpoint"]) != meta["teacher_sha256"]:
         raise RuntimeError("teacher checkpoint changed since prepare")
@@ -68,11 +68,11 @@ def check_frozen(run):
 
 def prepare(args):
     import yaml
-    from FM_distillation.core.fm_data import sha256, SCHEMA
+    from FM_distillation.src.fm_data import sha256, SCHEMA
     config_path = Path(args.config).resolve()
     checkpoint = Path(args.checkpoint).resolve(strict=True)
     cfg = yaml.safe_load(config_path.read_text())
-    split_path = Path(getattr(args, "scene_assignments", None) or BASE / "../FM_distillation/config/fm_scene_split.json")
+    split_path = Path(getattr(args, "scene_assignments", None) or BASE / "../../FM_distillation/config/fm_scene_split.json")
     split = json.loads(split_path.read_text())
     assignments = [split[key] for key in ("train", "validation", "test", "reserved")]
     all_scenes = sum(assignments, [])
@@ -141,7 +141,7 @@ def serve(args):
     if any((run / "observations").iterdir()):
         raise RuntimeError("observations already exist; do not restart capture into the same run")
     from eval.src import policy_server
-    from FM_distillation.core.fm_capture_agent import recording_agent_class
+    from FM_distillation.src.fm_capture_agent import recording_agent_class
     import torch
     dump(run / "capture_runtime.json", {"gpu_uuid": uuid, "physical_gpu": physical_gpu, "torch": torch.__version__,
                                       "cuda": torch.version.cuda, "python": sys.version})
@@ -182,7 +182,7 @@ def label(args):
     uuid = default_gpu()
     import numpy as np
     import torch
-    from FM_distillation.core.fm_data import load_record, save_record, validate_observation, validate_label, teacher_tap, sha256
+    from FM_distillation.src.fm_data import load_record, save_record, validate_observation, validate_label, teacher_tap, sha256
     from eval.src.policy_network_embodiment import NavDP_Policy_Embodiment
     run = Path(args.run).resolve()
     meta = check_frozen(run)
@@ -265,7 +265,7 @@ def label(args):
 
 def validate(args):
     import numpy as np
-    from FM_distillation.core.fm_data import load_record, validate_label, validate_observation, sha256
+    from FM_distillation.src.fm_data import load_record, validate_label, validate_observation, sha256
     run = Path(args.run).resolve()
     meta = manifest(run)
     directory = run / args.name

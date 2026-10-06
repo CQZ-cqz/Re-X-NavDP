@@ -4,7 +4,7 @@
 import sys as _rex_sys
 from pathlib import Path as _RexPath
 _REX_ROOT = _RexPath(__file__).resolve().parents[1]
-_REX_BASE = _REX_ROOT / "x-navdp"
+_REX_BASE = _REX_ROOT / "baselines/x-navdp"
 for _rex_path in (_REX_ROOT, _REX_BASE):
     if str(_rex_path) not in _rex_sys.path:
         _rex_sys.path.insert(0, str(_rex_path))
@@ -13,9 +13,9 @@ import unittest
 from unittest.mock import patch
 import numpy as np
 import torch
-from FM_distillation.core.rtc import sample_with_rtc, fm_rtc_agent_class
-from FM_distillation.core.evaluation import metric_summary
-from FM_distillation.core.flow_generator import CompactFlowGenerator
+from FM_distillation.src.rtc import sample_with_rtc, fm_rtc_agent_class
+from FM_distillation.src.evaluation import metric_summary
+from FM_distillation.src.flow_generator import CompactFlowGenerator
 from test_flow_generator import teacher_fixture
 
 
@@ -84,8 +84,8 @@ class RTCTests(unittest.TestCase):
             raw = student.sample(goal,rgbd,embodiment,**kw)
             return dict(trajectories=raw,scores=torch.zeros(1,8),top_trajectories=raw[:,:2])
         with patch('eval.src.policy_agent.NavDP_Agent',Agent), \
-             patch('FM_distillation.core.flow_generator.CompactFlowGenerator',return_value=self.model), \
-             patch('FM_distillation.core.flow_generator.generate_and_rank',side_effect=rank), \
+             patch('FM_distillation.src.flow_generator.CompactFlowGenerator',return_value=self.model), \
+             patch('FM_distillation.src.flow_generator.generate_and_rank',side_effect=rank), \
              patch('torch.load',return_value=dict(signature=dict(teacher_sha256='t'),student=self.model.state_dict())):
             agent = fm_rtc_agent_class('unused','t')()
             result = agent.navi_former.predict_pointgoal_action_with_guidance(np.zeros((1,3)),None,None,

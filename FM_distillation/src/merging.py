@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 import sys
 
-from FM_distillation.core.storage import atomic_json, digest, read_json, validate_splits, writer_lock
+from FM_distillation.src.storage import atomic_json, digest, read_json, validate_splits, writer_lock
 
 
 def inspect_inputs(train_snapshot, train_labels, val_snapshot, val_labels):
@@ -117,7 +117,7 @@ import json
 from pathlib import Path
 import sys
 
-from FM_distillation.core.storage import (atomic_json, condition_hashes, digest, read_json,
+from FM_distillation.src.storage import (atomic_json, condition_hashes, digest, read_json,
                                      validate_splits, writer_lock, verify_code)
 
 
@@ -148,13 +148,13 @@ def episode_outcomes(rows, metrics):
 
 
 def validate_mixed_record(row, teacher_hash):
-    from FM_distillation.core.fm_data import load_record, validate_label
+    from FM_distillation.src.fm_data import load_record, validate_label
     path = Path(row['label_path'])
     if digest(path) != row['label_sha256']:
         raise ValueError(f'label hash mismatch: {path}')
     arrays,meta = load_record(path)
     if row['label_format'] == 'joint_v1':
-        from FM_distillation.core.labeling import validate_joint_label
+        from FM_distillation.src.labeling import validate_joint_label
         validate_joint_label(arrays,meta)
     elif row['label_format'] == 'legacy_v1':
         if 'joint_label_version' in meta:

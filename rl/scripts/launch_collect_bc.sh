@@ -6,11 +6,11 @@
 # inside the Python process (the dynamic linker caches LD_LIBRARY_PATH at startup).
 #
 # Usage:
-#   bash ../rl/scripts/launch_collect_bc.sh [collect_direct_bc.py args...]
-#   bash ../rl/scripts/launch_collect_bc.sh --steps 20000 --scene-index 0
+#   bash ../../rl/scripts/launch_collect_bc.sh [collect_direct_bc.py args...]
+#   bash ../../rl/scripts/launch_collect_bc.sh --steps 20000 --scene-index 0
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../x-navdp" && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../baselines/x-navdp" && pwd)"
 cd "$REPO_ROOT"
 
 export ACADOS_SOURCE_DIR="${ACADOS_SOURCE_DIR:-${HOME}/acados}"
@@ -18,4 +18,4 @@ export LD_LIBRARY_PATH="${ACADOS_SOURCE_DIR}/lib:${LD_LIBRARY_PATH:-}"
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
-"${PYTHON_BIN}" ../rl/cli.py collect "$@"
+"${PYTHON_BIN}" ../../rl/cli.py collect "$@"

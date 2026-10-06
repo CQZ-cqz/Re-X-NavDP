@@ -107,9 +107,9 @@ def get_args():
     exec_mode.add_argument("--direct_checkpoint", type=str,
         help="Trained direct tracker checkpoint; enables MPC-free execution.")
     parser.add_argument("--reactive_encoder_checkpoint", type=str,
-        default=str(Path(_REPO_ROOT)/"checkpoints/x-navdp_posttrain.ckpt"))
-    parser.add_argument("--reactive_config", default=str(Path(_REPO_ROOT)/"../rl/config/reactive_rgbd_g1.yaml"))
-    parser.add_argument("--direct_config", default=str(Path(_REPO_ROOT)/"../rl/config/reactive_rgbd_direct_g1.yaml"))
+        default=str(Path(_REPO_ROOT)/"../../checkpoints/x-navdp_posttrain.ckpt"))
+    parser.add_argument("--reactive_config", default=str(Path(_REPO_ROOT)/"../../rl/config/reactive_rgbd_g1.yaml"))
+    parser.add_argument("--direct_config", default=str(Path(_REPO_ROOT)/"../../rl/config/reactive_rgbd_direct_g1.yaml"))
     parser.add_argument("--reactive_device", default="cpu")
     parser.add_argument("--strict_pointgoal", action="store_true",
         help="Use continuous PointGoal distance/speed/yaw hold for success. Direct mode enables this automatically.")

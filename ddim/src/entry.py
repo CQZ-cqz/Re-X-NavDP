@@ -10,8 +10,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from ddim.core.ddim_ddpm_metrics import compare_sets
-from ddim.core.diffusion_sampling import sampling_timesteps
+from ddim.src.ddim_ddpm_metrics import compare_sets
+from ddim.src.diffusion_sampling import sampling_timesteps
 from eval.src.policy_network_embodiment import NavDP_Policy_Embodiment
 
 import matplotlib
@@ -55,8 +55,8 @@ import numpy as np
 import torch
 
 
-from ddim.core.ddim_ddpm_metrics import compare_sets  # noqa: E402
-from ddim.core.diffusion_sampling import sampling_timesteps  # noqa: E402
+from ddim.src.ddim_ddpm_metrics import compare_sets  # noqa: E402
+from ddim.src.diffusion_sampling import sampling_timesteps  # noqa: E402
 from eval.src.policy_network_embodiment import NavDP_Policy_Embodiment  # noqa: E402
 
 import matplotlib
@@ -201,8 +201,8 @@ import numpy as np
 import torch
 
 
-from ddim.core.ddim_ddpm_metrics import compare_sets  # noqa: E402
-from ddim.core.diffusion_sampling import sampling_timesteps  # noqa: E402
+from ddim.src.ddim_ddpm_metrics import compare_sets  # noqa: E402
+from ddim.src.diffusion_sampling import sampling_timesteps  # noqa: E402
 from eval.src.policy_network_embodiment import NavDP_Policy_Embodiment  # noqa: E402
 
 # (name, sampler, steps, rtc, noise_ref)

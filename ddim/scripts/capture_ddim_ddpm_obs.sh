@@ -13,7 +13,7 @@
 #   NUM_EPISODES  episode cap (default 1)
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../x-navdp" && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../baselines/x-navdp" && pwd)"
 cd "$REPO_ROOT"
 
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"

@@ -12,7 +12,7 @@ import math
 import numpy as np
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from scipy.interpolate import splprep, splev
-from ddim.core.diffusion_sampling import sampling_timesteps, ddim_step
+from ddim.src.diffusion_sampling import sampling_timesteps, ddim_step
 
 EMBODIMENT_NAME_TO_IDX = {"dingo": 0, "unitree_g1": 1, "unitree_go2": 2}
 
@@ -370,6 +370,7 @@ class NavDP_Policy_Embodiment(nn.Module):
         prefix_attention_schedule="exp",
         embodiment=0,
         initial_noise=None,
+        goal_embed_override=None,
     ):
         """Predict point goal actions with trajectory guidance.
 
@@ -377,6 +378,12 @@ class NavDP_Policy_Embodiment(nn.Module):
         ``[batch_size * sample_num, predict_size, 3]`` so different samplers can
         be seeded with the *same* noise for a controlled comparison. DDPM's
         per-step scheduler noise remains its own independent process.
+
+        ``goal_embed_override`` optionally replaces the conditioning goal token
+        ``[batch_size, 1, token_dim]`` during diffusion (e.g. a zero token for
+        goal-less sampling). The dual-Q ranking still uses the real goal encoded
+        from ``goal_point``, so candidates generated under a different condition
+        are still scored against the actual goal.
         """
         embodiment = self._resolve_embodiment_arg(embodiment)
         batch_size = goal_point.shape[0]
@@ -399,7 +406,16 @@ class NavDP_Policy_Embodiment(nn.Module):
             valid_segment_len = torch.as_tensor(valid_segment_len.copy(), device=self.device)
             rgbd_embed = self.rgbd_encoder(input_images, input_depths)
             goal_embed = self.point_encoder(tensor_point_goal).unsqueeze(1)
+            if goal_embed_override is not None:
+                cond_goal = torch.as_tensor(goal_embed_override, device=self.device)
+                if cond_goal.shape != goal_embed.shape:
+                    raise ValueError(
+                        f"goal_embed_override shape {tuple(cond_goal.shape)} must match {tuple(goal_embed.shape)}")
+                cond_goal = cond_goal.to(goal_embed.dtype)
+            else:
+                cond_goal = goal_embed
             rgbd_embed = torch.repeat_interleave(rgbd_embed, sample_num, dim=0)
+            cond_goal = torch.repeat_interleave(cond_goal, sample_num, dim=0)
             goal_embed = torch.repeat_interleave(goal_embed, sample_num, dim=0)
             prev_action = torch.repeat_interleave(prev_action, sample_num, dim=0).to(self.device)
             valid_segment_len = torch.repeat_interleave(valid_segment_len, sample_num, dim=0).to(self.device)
@@ -422,9 +438,9 @@ class NavDP_Policy_Embodiment(nn.Module):
                 with torch.set_grad_enabled(guided):
                     naction = naction.detach().requires_grad_(guided)
                     if k >= self.ft_step:
-                        noise_pred = self.predict_noise(naction, k.unsqueeze(0), goal_embed, rgbd_embed)
+                        noise_pred = self.predict_noise(naction, k.unsqueeze(0), cond_goal, rgbd_embed)
                     else:
-                        noise_pred = self.predict_noise_ft(naction, k.unsqueeze(0), goal_embed, rgbd_embed, embodiment)
+                        noise_pred = self.predict_noise_ft(naction, k.unsqueeze(0), cond_goal, rgbd_embed, embodiment)
                     next_k = int(self.sampling_timesteps[step_index + 1]) if step_index + 1 < len(self.sampling_timesteps) else -1
                     updated, clean = ddim_step(
                         naction, noise_pred, int(k), next_k,
@@ -445,11 +461,11 @@ class NavDP_Policy_Embodiment(nn.Module):
                 continue
             if k >= self.ft_step:
                 naction = naction.requires_grad_(True)
-                noise_pred = self.predict_noise(naction, k.unsqueeze(0), goal_embed, rgbd_embed)
+                noise_pred = self.predict_noise(naction, k.unsqueeze(0), cond_goal, rgbd_embed)
             else:
                 naction = naction.requires_grad_(True)
                 noise_pred = self.predict_noise_ft(
-                    naction, k.unsqueeze(0), goal_embed, rgbd_embed, embodiment
+                    naction, k.unsqueeze(0), cond_goal, rgbd_embed, embodiment
                 )
 
             if k <= guidance_step:

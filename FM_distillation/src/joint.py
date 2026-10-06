@@ -22,13 +22,13 @@ import time
 import uuid
 import zipfile
 
-from FM_distillation.core.dataset import code_hashes, dump, check_frozen, select_physical_gpu
-from FM_distillation.core.storage import digest, read_json, atomic_json, writer_lock
-from FM_distillation.core.capture import stop_process, check_space, index_observations
+from FM_distillation.src.dataset import code_hashes, dump, check_frozen, select_physical_gpu
+from FM_distillation.src.storage import digest, read_json, atomic_json, writer_lock
+from FM_distillation.src.capture import stop_process, check_space, index_observations
 
 
 def joint_sources():
-    return {name:digest(BASE/name) for name in ("../FM_distillation/core/joint.py","../FM_distillation/core/labeling.py")}
+    return {name:digest(BASE/name) for name in ("../../FM_distillation/src/joint.py","../../FM_distillation/src/labeling.py")}
 
 
 def inventory(scene_limit=0, episodes=0):
@@ -97,7 +97,7 @@ def serve(args):
         raise ValueError("GPU or joint source mismatch")
     if any((run/"observations").iterdir()) or any((run/"labels").iterdir()):
         raise ValueError("do not restart a partial attempt")
-    from FM_distillation.core.labeling import joint_agent_class
+    from FM_distillation.src.labeling import joint_agent_class
     from eval.src import policy_server
     dump(run/"capture_runtime.json",dict(physical_gpu=args.physical_gpu,gpu_uuid=gpu_uuid,joint=True))
     policy_server.NavDP_Agent = joint_agent_class(run,meta,meta["audit_every"])
@@ -107,8 +107,8 @@ def serve(args):
 
 
 def finalize(run,row):
-    from FM_distillation.core.fm_data import load_record
-    from FM_distillation.core.labeling import validate_joint_label
+    from FM_distillation.src.fm_data import load_record
+    from FM_distillation.src.labeling import validate_joint_label
     report = index_observations(run,row)
     records = [json.loads(line) for line in (run/"observation_index.jsonl").read_text().splitlines()]
     hashes, audits = {},0
@@ -135,7 +135,7 @@ def finalize(run,row):
 
 
 def capture(root,row,plan,args):
-    from FM_distillation.core.capture import worker_env
+    from FM_distillation.src.capture import worker_env
     parent = root/"train"/row["scene"]
     number = 1
     while (parent/f"attempt_{number:03d}").exists():
@@ -144,7 +144,7 @@ def capture(root,row,plan,args):
     prepare(run,row,plan)
     env = worker_env(args.physical_gpu)
     env["X_NAVDP_MPC_CODEGEN_DIR"] = str(run/"mpc_codegen")
-    command = [sys.executable,str(BASE/"../FM_distillation/cli.py"),CLI_STAGE]
+    command = [sys.executable,str(BASE/"../../FM_distillation/cli.py"),CLI_STAGE]
     shared = ["--run",str(run),"--physical-gpu",str(args.physical_gpu),"--port",str(args.port)]
     server = evaluator = None
     try:
@@ -194,8 +194,8 @@ from pathlib import Path
 import sys
 
 
-from FM_distillation.core import dataset as fm_dataset
-from FM_distillation.core.storage import atomic_json, digest, read_json
+from FM_distillation.src import dataset as fm_dataset
+from FM_distillation.src.storage import atomic_json, digest, read_json
 
 
 def resolve_training_pairs(meta, directory):

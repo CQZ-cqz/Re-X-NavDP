@@ -1,7 +1,7 @@
 """Single source of truth for repository paths and ``sys.path`` bootstrap.
 
-The X-NavDP baseline lives under ``x-navdp/`` and is imported as bare ``eval.*``
-and ``src.*`` modules, so ``x-navdp/`` must be on ``sys.path``.  Downstream
+The X-NavDP baseline lives under ``baselines/x-navdp/`` and is imported as bare ``eval.*``
+and ``src.*`` modules, so ``baselines/x-navdp/`` must be on ``sys.path``.  Downstream
 packages (``FM_distillation``, ``rl``, ``bridge``, ``ddim``) are regular packages
 under the repository root.
 
@@ -14,7 +14,7 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = ROOT / "x-navdp"
+BASE = ROOT / "baselines/x-navdp"
 CHECKPOINT_DIR = ROOT / "checkpoints"
 
 

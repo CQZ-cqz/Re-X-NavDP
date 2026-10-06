@@ -16,7 +16,7 @@
 #   POLICY_VISUALIZATION  planner debug panels: 1=on, 0=off (default: 1)
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../x-navdp" && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../baselines/x-navdp" && pwd)"
 cd "$REPO_ROOT"
 
 # GPU-1 workaround (memory: GPU 0 is usually occupied).
@@ -26,7 +26,7 @@ export ISAAC_PHYSICS_GPU=0
 export OMNI_KIT_ACCEPT_EULA=YES
 unset DISPLAY
 
-# The policy-server subprocess imports bridge/ddim from the repo root (x-navdp/..).
+# The policy-server subprocess imports bridge/ddim from the repo root (baselines/x-navdp/..).
 export PYTHONPATH="$(cd "$REPO_ROOT/.." && pwd):${PYTHONPATH:-}"
 
 PY="${PY:-python}"
@@ -91,7 +91,7 @@ echo "policy server ready (PID $SERVER_PID)"
 "$PY" -m eval.scripts.evaluate_pointgoal \
     --config_file "$SCENE_CONFIG" --scene_index "$SCENE_INDEX" --device cuda:0 \
     --direct_checkpoint "$DIRECT_CHECKPOINT" \
-    --direct_config ../rl/config/reactive_rgbd_direct_g1.yaml \
+    --direct_config ../../rl/config/reactive_rgbd_direct_g1.yaml \
     --reactive_encoder_checkpoint "$ENCODER_CHECKPOINT" \
     --reactive_device cuda:0 \
     --strict_pointgoal \

@@ -2,7 +2,7 @@
 # Run resumable direct RGB-D PPO across the complete home train split.
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../x-navdp" && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../baselines/x-navdp" && pwd)"
 cd "$REPO_ROOT"
 
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
@@ -18,4 +18,4 @@ unset DISPLAY
 PYTHON_BIN="${PYTHON_BIN:-python}"
 # Keep the nohup/background PID identical to the scheduler PID. The scheduler
 # forwards TERM/INT to its active per-scene process group.
-exec "${PYTHON_BIN}" -u ../rl/cli.py train-full "$@"
+exec "${PYTHON_BIN}" -u ../../rl/cli.py train-full "$@"

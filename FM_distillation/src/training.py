@@ -16,7 +16,7 @@ from pathlib import Path
 import sys
 import time
 
-from FM_distillation.core.storage import (atomic_json, digest, freeze, LabelCache,
+from FM_distillation.src.storage import (atomic_json, digest, freeze, LabelCache,
     read_json, sample_rows, validate_splits, verify_code, writer_lock)
 
 
@@ -31,7 +31,7 @@ def load_teacher(snapshot, device):
 def label_one(teacher, row, snapshot, seed):
     import numpy as np
     import torch
-    from FM_distillation.core.fm_data import load_record, teacher_tap, validate_observation, validate_label
+    from FM_distillation.src.fm_data import load_record, teacher_tap, validate_observation, validate_label
     if digest(row["source"]) != row["sha256"]:
         raise ValueError("observation changed since snapshot")
     obs, src = load_record(row["source"])
@@ -86,7 +86,7 @@ def label_one(teacher, row, snapshot, seed):
 
 
 def label(args):
-    from FM_distillation.core.fm_data import load_record, save_record, validate_label
+    from FM_distillation.src.fm_data import load_record, save_record, validate_label
     snapshot = read_json(args.snapshot)
     validate_splits(snapshot["records"], require_validation=False)
     verify_code(snapshot)
@@ -195,10 +195,10 @@ def label(args):
 
 
 def source_hashes():
-    names = ("../FM_distillation/core/training.py", "../FM_distillation/core/storage.py",
-             "../FM_distillation/core/flow_generator.py", "../FM_distillation/core/fm_learning.py", "../FM_distillation/core/fm_data.py")
+    names = ("../../FM_distillation/src/training.py", "../../FM_distillation/src/storage.py",
+             "../../FM_distillation/src/flow_generator.py", "../../FM_distillation/src/fm_learning.py", "../../FM_distillation/src/fm_data.py")
     result = {name: digest(BASE / name) for name in names}
-    for part in ("FM_distillation", "bridge", "ddim/core"):
+    for part in ("FM_distillation", "bridge", "ddim/src"):
         for path in sorted((ROOT / part).rglob("*.py")):
             result[os.path.relpath(path, BASE)] = digest(path)
     return result
@@ -219,7 +219,7 @@ def labeled_data(args):
 
 def labeled_mixed_data(dataset):
     """Load a merge-success mixed dataset (failure-filtered, absolute label_path)."""
-    from FM_distillation.core.merging import load_mixed_dataset
+    from FM_distillation.src.merging import load_mixed_dataset
     return load_mixed_dataset(dataset)
 
 
@@ -229,10 +229,13 @@ def batch(cache, rows, candidates, device):
     loaded = [cache.get(row) for row in rows]
     def tensor(values):
         return torch.from_numpy(np.stack(values)).to(device)
-    return dict(action_deltas=tensor([a["raw_action_deltas"][c] for (a, _), c in zip(loaded, candidates)]),
-                goal_embed=tensor([a["goal_embed"] for a, _ in loaded]),
-                rgbd_embed=tensor([a["rgbd_embed"] for a, _ in loaded]),
-                embodiment=torch.tensor([m["embodiment"] for _, m in loaded], device=device))
+    result = dict(action_deltas=tensor([a["raw_action_deltas"][c] for (a, _), c in zip(loaded, candidates)]),
+                  goal_embed=tensor([a["goal_embed"] for a, _ in loaded]),
+                  rgbd_embed=tensor([a["rgbd_embed"] for a, _ in loaded]),
+                  embodiment=torch.tensor([m["embodiment"] for _, m in loaded], device=device))
+    if all("initial_noise" in a for a, _ in loaded):
+        result["initial_noise"] = tensor([a["initial_noise"][c] for (a, _), c in zip(loaded, candidates)])
+    return result
 
 
 def validation_rows(groups, count):
@@ -245,8 +248,8 @@ def validation_rows(groups, count):
 def evaluate(model, cache, selected, device, seed, teacher=None):
     import numpy as np
     import torch
-    from FM_distillation.core.fm_learning import candidate_metrics
-    from FM_distillation.core.flow_generator import generate_and_rank
+    from FM_distillation.src.fm_learning import candidate_metrics
+    from FM_distillation.src.flow_generator import generate_and_rank
     model.eval()
     rng = torch.Generator().manual_seed(seed)
     scenes = {}
@@ -255,7 +258,10 @@ def evaluate(model, cache, selected, device, seed, teacher=None):
             metrics = []
             for row in rows:
                 inputs = batch(cache, [row]*8, list(range(8)), device)
-                loss = model.flow_loss(**inputs, noise=torch.randn(8,24,3,generator=rng).to(device),
+                noise = inputs.pop("initial_noise", None)
+                if noise is None:
+                    noise = torch.randn(8,24,3,generator=rng).to(device)
+                loss = model.flow_loss(**inputs, noise=noise,
                                        t=torch.rand(8,generator=rng).to(device)).item()
                 goal, rgbd, embodiment = (inputs[k][:1] for k in ("goal_embed", "rgbd_embed", "embodiment"))
                 noise = torch.randn(1,8,24,3,generator=rng).to(device)
@@ -294,7 +300,7 @@ def save_checkpoint(path, value):
 
 def train(args):
     import torch
-    from FM_distillation.core.flow_generator import CompactFlowGenerator
+    from FM_distillation.src.flow_generator import CompactFlowGenerator
     if getattr(args, "dataset", None):
         snapshot, groups, cache = labeled_mixed_data(args.dataset)
         identity = dict(dataset_sha256=digest(Path(args.dataset) / "snapshot.json"),
@@ -308,7 +314,7 @@ def train(args):
     torch.manual_seed(args.seed)
     teacher = load_teacher(snapshot, "cpu")
     model = CompactFlowGenerator(teacher, depth=4)
-    from FM_distillation.core.fm_backbone import backbone_meta
+    from FM_distillation.src.fm_backbone import backbone_meta
     teacher_state, teacher_meta = teacher.state_dict(), backbone_meta(teacher)
     del teacher  # cached-feature training: no teacher actor/encoder/Q on GPU
     model = model.to("cuda:0")
@@ -353,8 +359,11 @@ def train(args):
                     rows = sample_rows(groups, args.microbatch, rng)
                     candidates = torch.randint(8, (args.microbatch,), generator=rng).tolist()
                     inputs = batch(cache, rows, candidates, "cuda:0")
+                    noise = inputs.pop("initial_noise", None)
+                    if noise is None:
+                        noise = torch.randn(args.microbatch, 24, 3, generator=rng).to("cuda:0")
                     loss = model.flow_loss(**inputs,
-                        noise=torch.randn(args.microbatch,24,3,generator=rng).to("cuda:0"),
+                        noise=noise,
                         t=torch.rand(args.microbatch,generator=rng).to("cuda:0"))
                     if not torch.isfinite(loss):
                         raise ValueError("nonfinite loss")
@@ -382,14 +391,14 @@ def train(args):
                     print(json.dumps(record), flush=True)
                 log.write(json.dumps(record, allow_nan=False)+"\n")
                 log.flush()
-        from FM_distillation.core.fm_backbone import export_deploy_checkpoint
+        from FM_distillation.src.fm_backbone import export_deploy_checkpoint
         export_deploy_checkpoint(model, teacher_state, teacher_meta, signature, output/"deploy.pt")
         print(f"Deploy checkpoint written: {output/'deploy.pt'}", flush=True)
 
 
 def rank(args):
     import torch
-    from FM_distillation.core.flow_generator import CompactFlowGenerator
+    from FM_distillation.src.flow_generator import CompactFlowGenerator
     snapshot, groups, cache = labeled_data(args)
     state = torch.load(args.student, map_location="cpu", weights_only=True)
     if (state["signature"]["snapshot_sha256"] != digest(args.snapshot) or
@@ -420,7 +429,7 @@ from pathlib import Path
 import sys
 import time
 
-from FM_distillation.core.storage import atomic_json, digest, writer_lock
+from FM_distillation.src.storage import atomic_json, digest, writer_lock
 
 
 def all_scene_rows(groups, per_scene, rng):
@@ -449,7 +458,7 @@ from pathlib import Path
 import sys
 import time
 
-from FM_distillation.core.storage import atomic_json, digest, writer_lock
+from FM_distillation.src.storage import atomic_json, digest, writer_lock
 
 
 def all_candidate_batch(cache, rows):
@@ -463,7 +472,7 @@ def all_candidate_batch(cache, rows):
     if actions.shape != (len(rows), 8, 24, 3):
         raise ValueError("expected teacher raw deltas [B,8,24,3]")
     return dict(action_deltas=actions, goal_embed=stack("goal_embed"),
-                rgbd_embed=stack("rgbd_embed"),
+                rgbd_embed=stack("rgbd_embed"), initial_noise=stack("initial_noise"),
                 embodiment=torch.tensor([m["embodiment"] for _, m in loaded]))
 
 
@@ -488,7 +497,12 @@ def all_candidate_loss(model, data, device, rng, chunk_size, *, backward=False):
     b, k, h, d = data["action_deltas"].shape
     n = b*k
     targets = data["action_deltas"].reshape(n, h, d)
-    noise = torch.randn(n, h, d, generator=rng)
+    if "initial_noise" in data:
+        # Latent alignment: pair each teacher trajectory with the exact initial
+        # noise that generated it (stored in the label), preserving mode identity.
+        noise = data["initial_noise"].reshape(n, h, d)
+    else:
+        noise = torch.randn(n, h, d, generator=rng)
     t = torch.rand(n, generator=rng)
     errors = []
     for start in range(0, n, chunk_size):
@@ -505,6 +519,34 @@ def all_candidate_loss(model, data, device, rng, chunk_size, *, backward=False):
             (per_candidate.sum()/n).backward()
         errors.append(per_candidate.detach().cpu())
     return torch.cat(errors).reshape(b, k), t.reshape(b, k)
+
+
+def pairwise_diversity(deltas):
+    """Mean pairwise cumulative-XY distance across candidates. [B,K,24,3] -> [B]."""
+    import torch
+    path = deltas.cumsum(-2) / 4
+    matrix = (path[:, :, None, :, :2] - path[:, None, :, :, :2]).norm(dim=-1).mean(-1)
+    k = deltas.shape[1]
+    mask = torch.triu(torch.ones(k, k, dtype=torch.bool, device=deltas.device), diagonal=1)
+    return matrix[:, mask].mean(-1)
+
+
+def distribution_loss(model, data, device, *, candidates=8, steps=4,
+                      lambda_mu=0.1, lambda_sigma=0.5):
+    """Symmetric 2nd-order distribution matching on the cumulative path.
+
+    Matches the per-candidate mean (location) and per-waypoint standard deviation
+    (spread), both symmetric so the student is pulled back from over-spreading as
+    well as from mode collapse. Differentiable through ``model.sample_with_grad``.
+    """
+    import torch
+    samples = model.sample_with_grad(data["goal_embed"].to(device), data["rgbd_embed"].to(device),
+                                     data["embodiment"].to(device), candidates=candidates, steps=steps)
+    p_s = samples.cumsum(-2) / 4
+    p_t = data["action_deltas"].to(device).cumsum(-2) / 4
+    mu_s, mu_t = p_s.mean(1), p_t.mean(1)
+    std_s, std_t = p_s.std(1, unbiased=False), p_t.std(1, unbiased=False)
+    return lambda_mu * (mu_s - mu_t).square().mean() + lambda_sigma * (std_s - std_t).square().mean()
 
 
 def loss_diagnostics(errors, times, actions):
@@ -563,7 +605,7 @@ from pathlib import Path
 import sys
 import tempfile
 
-from FM_distillation.core.storage import atomic_json, digest, freeze, read_json, LabelCache, verify_code, writer_lock
+from FM_distillation.src.storage import atomic_json, digest, freeze, read_json, LabelCache, verify_code, writer_lock
 
 
 def validation_snapshot(collection, destination):

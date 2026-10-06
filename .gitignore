@@ -32,9 +32,9 @@ vis_output/
 *.engine
 .c_generated_code/
 c_generated_code/
-.x-navdp/
-x-navdp/data/scenes/
-x-navdp/data/GRScenes-100/
+.baselines/x-navdp/
+baselines/x-navdp/data/scenes/
+baselines/x-navdp/data/GRScenes-100/
 .pytest_cache/
 
 # Dev-only artifacts: not part of the published repository

@@ -4,7 +4,7 @@
 import sys as _rex_sys
 from pathlib import Path as _RexPath
 _REX_ROOT = _RexPath(__file__).resolve().parents[1]
-_REX_BASE = _REX_ROOT / "x-navdp"
+_REX_BASE = _REX_ROOT / "baselines/x-navdp"
 for _rex_path in (_REX_ROOT, _REX_BASE):
     if str(_rex_path) not in _rex_sys.path:
         _rex_sys.path.insert(0, str(_rex_path))
@@ -24,15 +24,15 @@ import numpy as np
 import torch
 from diffusers import DDPMScheduler
 
-from FM_distillation.core.fm_capture_agent import recording_agent_class
-from FM_distillation.core.fm_data import (SCHEMA, load_record, save_record, sha256,
+from FM_distillation.src.fm_capture_agent import recording_agent_class
+from FM_distillation.src.fm_data import (SCHEMA, load_record, save_record, sha256,
                               teacher_tap, validate_label, validate_observation)
 from eval.src.policy_agent import NavDP_Agent
 from eval.src.policy_network_embodiment import NavDP_Policy_Embodiment
 from bridge.recovery import RecoverySelector
 
 BASE = _REX_BASE
-from FM_distillation.core import dataset as cli
+from FM_distillation.src import dataset as cli
 
 
 def observation():

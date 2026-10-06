@@ -3,14 +3,14 @@
 import sys
 from pathlib import Path as _Path
 _ROOT = _Path(__file__).resolve().parents[1]
-_BASE = _ROOT / "x-navdp"
+_BASE = _ROOT / "baselines/x-navdp"
 for _p in (_ROOT, _BASE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
 from rexnavdp import BASE, ROOT as REPO_ROOT
 ROOT = BASE  # x-navdp baseline directory
-from rl.core.entry import (StageCheckpointMissing, STATE_VERSION, atomic_json,
+from rl.src.entry import (StageCheckpointMissing, STATE_VERSION, atomic_json,
                            completed_stage, final_metrics, initial_job_iteration,
                            load_navigable_bounds, load_train_scenes, make_encoder_and_policy,
                            make_obs, new_state, parse_scene_indices, percentile, print_plan,
@@ -43,7 +43,7 @@ os.environ["PYTHONPATH"] = os.pathsep.join(
 def cmd_collect():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--scene-config', default=str(ROOT/'eval/config/eval_pointgoal/humanoid_internscene_home.yaml'))
-    parser.add_argument('--config', default=str(ROOT/'../rl/config/reactive_rgbd_direct_g1.yaml'))
+    parser.add_argument('--config', default=str(ROOT/'../../rl/config/reactive_rgbd_direct_g1.yaml'))
     parser.add_argument('--checkpoint', default=str(REPO_ROOT/'checkpoints/x-navdp_posttrain.ckpt'))
     parser.add_argument('--scene-index', type=int, default=0)
     parser.add_argument('--device', default='cuda:0')
@@ -119,10 +119,10 @@ def cmd_collect():
         app = AppLauncher(headless=True, enable_cameras=True, device=args.device).app
         from src.environment import create_dingoeval_environment
         from src.utils import BatchMPCController
-        from rl.core.encoder import build_rgbd_encoder, resolve_policy_visual_config
-        from rl.core.policy import PolicyConfig, ReactiveActorCritic
-        from rl.core.train_env import DirectReactiveTrainEnv, AsyncPlanner
-        from rl.core.isaac_backend import IsaacReactiveBackend
+        from rl.src.encoder import build_rgbd_encoder, resolve_policy_visual_config
+        from rl.src.policy import PolicyConfig, ReactiveActorCritic
+        from rl.src.train_env import DirectReactiveTrainEnv, AsyncPlanner
+        from rl.src.isaac_backend import IsaacReactiveBackend
         from eval.src.client_utils import navigator_reset, pointgoal_step
         env, controller = create_dingoeval_environment(cfg.environment.scene_dir, 0, 1,
             scene_scale=getattr(cfg.environment, 'scene_scale', None), device=args.device,
@@ -264,7 +264,7 @@ def cmd_collect_all():
             # Isaac's texture cache balloons to tens of GB over many scenes and its
             # launch-time GC spikes RAM past the OOM threshold; clear it per scene.
             shutil.rmtree(Path.home() / '.cache/ov/texturecache', ignore_errors=True)
-            cmd = [sys.executable, '-u', str(ROOT / '../rl/cli.py'), 'collect',
+            cmd = [sys.executable, '-u', str(ROOT / '../../rl/cli.py'), 'collect',
                    '--scene-config', args.scene_config, '--checkpoint', args.checkpoint,
                    '--scene-index', str(i), '--episodes-per-scene', str(args.episodes_per_scene),
                    '--device', args.device, '--port', str(args.port), '--output', str(out)]
@@ -299,13 +299,13 @@ def cmd_collect_all():
 def cmd_train_bc():
     import numpy as np
     import torch
-    from rl.core.policy import PolicyConfig, ReactiveActorCritic
-    from rl.core.runner import CONTROL_MODE_DIRECT, ACTION_MAPPING_DIRECT, warm_start_policy
-    from rl.core.observation import DIRECT_STATE_VERSION
-    from rl.core.encoder import PREPROCESS_VERSION
-    from rl.core.bc import train_bc, evaluate_bc_metrics
+    from rl.src.policy import PolicyConfig, ReactiveActorCritic
+    from rl.src.runner import CONTROL_MODE_DIRECT, ACTION_MAPPING_DIRECT, warm_start_policy
+    from rl.src.observation import DIRECT_STATE_VERSION
+    from rl.src.encoder import PREPROCESS_VERSION
+    from rl.src.bc import train_bc, evaluate_bc_metrics
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', default=str(ROOT/'../rl/config/reactive_rgbd_direct_g1.yaml'))
+    parser.add_argument('--config', default=str(ROOT/'../../rl/config/reactive_rgbd_direct_g1.yaml'))
     parser.add_argument('--data', required=True, help='BC dataset .pt from collect_direct_bc.py')
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--lr', type=float, default=1e-3)
@@ -344,7 +344,7 @@ def cmd_train_bc():
     policy_config = PolicyConfig(**config['policy'])
     start_epoch, best_mse = 0, float('inf')
     if args.init:
-        from rl.core.runner import warm_start_policy
+        from rl.src.runner import warm_start_policy
         policy = warm_start_policy(args.init, policy_config, encoder_metadata or encoder_fingerprint,
             args.device, CONTROL_MODE_DIRECT)
     else:
@@ -406,7 +406,7 @@ def cmd_train_bc():
 def cmd_train_tracker():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--scene-config', default=str(ROOT/'eval/config/eval_pointgoal/humanoid_internscene_home.yaml'))
-    parser.add_argument('--config', default=str(ROOT/'../rl/config/reactive_rgbd_direct_g1.yaml'))
+    parser.add_argument('--config', default=str(ROOT/'../../rl/config/reactive_rgbd_direct_g1.yaml'))
     parser.add_argument('--checkpoint', default=str(REPO_ROOT/'checkpoints/x-navdp_posttrain.ckpt'))
     parser.add_argument('--scene-index', type=int, default=0)
     parser.add_argument('--device', default='cuda:0')
@@ -502,11 +502,11 @@ def cmd_train_tracker():
         from isaaclab.app import AppLauncher
         app = AppLauncher(headless=True, enable_cameras=True, device=args.device).app
         from src.environment import create_dingoeval_environment
-        from rl.core.encoder import build_rgbd_encoder, resolve_policy_visual_config
-        from rl.core.policy import PolicyConfig, ReactiveActorCritic
-        from rl.core.runner import ReactiveRunner, warm_start_policy, CONTROL_MODE_DIRECT
-        from rl.core.train_env import DirectReactiveTrainEnv, AsyncPlanner
-        from rl.core.isaac_backend import IsaacReactiveBackend
+        from rl.src.encoder import build_rgbd_encoder, resolve_policy_visual_config
+        from rl.src.policy import PolicyConfig, ReactiveActorCritic
+        from rl.src.runner import ReactiveRunner, warm_start_policy, CONTROL_MODE_DIRECT
+        from rl.src.train_env import DirectReactiveTrainEnv, AsyncPlanner
+        from rl.src.isaac_backend import IsaacReactiveBackend
         from eval.src.client_utils import navigator_reset, pointgoal_step
         env, controller = create_dingoeval_environment(cfg.environment.scene_dir, 0, args.num_envs,
             scene_scale=getattr(cfg.environment, 'scene_scale', None), device=args.device,
@@ -583,7 +583,7 @@ def cmd_train_full():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--scene-config', action='append', default=None,
                         help='Scene config(s). Pass twice (e.g. easy + hard) to interleave two splits.')
-    parser.add_argument('--config', default=str(ROOT/'../rl/config/reactive_rgbd_direct_g1.yaml'))
+    parser.add_argument('--config', default=str(ROOT/'../../rl/config/reactive_rgbd_direct_g1.yaml'))
     parser.add_argument('--checkpoint', default=str(REPO_ROOT/'checkpoints/x-navdp_posttrain.ckpt'))
     initial = parser.add_mutually_exclusive_group()
     initial.add_argument('--bc-init')
@@ -687,7 +687,7 @@ def cmd_train_full():
             oom_retries[key] = int(previous.get('job_number') == job_number and
                 previous.get('returncode') == -signal.SIGKILL)
         job_num_envs = max(1, int(settings['num_envs']) // (2 ** int(oom_retries[key])))
-        command = [sys.executable, '-u', str(ROOT/'../rl/cli.py'), 'train-tracker',
+        command = [sys.executable, '-u', str(ROOT/'../../rl/cli.py'), 'train-tracker',
             '--scene-config', job.get('scene_config', settings['scene_config']),
             '--config', settings['config'],
             '--checkpoint', settings['checkpoint'], '--scene-index', str(job['scene_index']),
@@ -770,7 +770,7 @@ def cmd_train_full():
 def cmd_train_reactive():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--scene-config', default=str(ROOT/'eval/config/eval_pointgoal/humanoid_internscene_home.yaml'))
-    parser.add_argument('--config', default=str(ROOT/'../rl/config/reactive_rgbd_g1.yaml'))
+    parser.add_argument('--config', default=str(ROOT/'../../rl/config/reactive_rgbd_g1.yaml'))
     parser.add_argument('--checkpoint', default=str(REPO_ROOT/'checkpoints/x-navdp_posttrain.ckpt'))
     parser.add_argument('--scene-index', type=int, default=0)
     parser.add_argument('--device', default='cuda:0')
@@ -796,7 +796,7 @@ def cmd_train_reactive():
     os.environ.pop('DISPLAY', None)
     # acados (MPC) solver path. NOTE: libhpipm.so/libblasfeo.so are resolved by the
     # dynamic linker at process startup, so LD_LIBRARY_PATH must be set in the SHELL
-    # (see ../rl/scripts/launch_reactive_train.sh); os.environ cannot affect dlopen.
+    # (see ../../rl/scripts/launch_reactive_train.sh); os.environ cannot affect dlopen.
     os.environ.setdefault('ACADOS_SOURCE_DIR', os.path.expanduser("~/acados"))
     import numpy as np
     import torch
@@ -849,11 +849,11 @@ def cmd_train_reactive():
         app = AppLauncher(headless=True, enable_cameras=True, device=args.device).app
         from src.environment import create_dingoeval_environment
         from src.utils import BatchMPCController
-        from rl.core.encoder import build_rgbd_encoder, resolve_policy_visual_config
-        from rl.core.policy import PolicyConfig, ReactiveActorCritic
-        from rl.core.runner import ReactiveRunner
-        from rl.core.train_env import ReactiveTrainEnv, AsyncPlanner
-        from rl.core.isaac_backend import IsaacReactiveBackend
+        from rl.src.encoder import build_rgbd_encoder, resolve_policy_visual_config
+        from rl.src.policy import PolicyConfig, ReactiveActorCritic
+        from rl.src.runner import ReactiveRunner
+        from rl.src.train_env import ReactiveTrainEnv, AsyncPlanner
+        from rl.src.isaac_backend import IsaacReactiveBackend
         from eval.src.client_utils import navigator_reset, pointgoal_step
         env, controller = create_dingoeval_environment(cfg.environment.scene_dir, 0, args.num_envs,
             scene_scale=getattr(cfg.environment, 'scene_scale', None), device=args.device,
@@ -980,7 +980,7 @@ def cmd_bench():
 
         if args.breakdown:
             if args.backend == "yolo26_depth":
-                from rl.core.encoder import MetricDepthPreprocessor
+                from rl.src.encoder import MetricDepthPreprocessor
                 image = preprocess_yolo_rgb(rgb, device, args.size)
                 distance = MetricDepthPreprocessor()(depth, device, args.size)[0]
                 rows.append(summarize("rgb_preprocess",
@@ -996,7 +996,7 @@ def cmd_bench():
                                       run_timed(lambda: encoder.depth_model(distance), args.runs, args.warmup, device),
                                       args.deadline_ms))
             else:
-                from rl.core.encoder import preprocess_rgbd
+                from rl.src.encoder import preprocess_rgbd
                 image, distance, _ = preprocess_rgbd(rgb, depth)
                 rows.append(summarize("preprocess",
                                       run_timed(lambda: preprocess_rgbd(rgb, depth), args.runs, args.warmup, device),

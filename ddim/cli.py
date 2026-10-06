@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path as _Path
 _ROOT = _Path(__file__).resolve().parents[1]
-_BASE = _ROOT / "x-navdp"
+_BASE = _ROOT / "baselines/x-navdp"
 for _p in (_ROOT, _BASE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
@@ -18,9 +18,9 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from ddim.core.diffusion_sampling import sampling_timesteps
+from ddim.src.diffusion_sampling import sampling_timesteps
 from eval.src.policy_network_embodiment import NavDP_Policy_Embodiment
-from ddim.core.entry import (BASE_SPECS, BLUE, CONFIGS, GREY, GROUPS, ORANGE,
+from ddim.src.entry import (BASE_SPECS, BLUE, CONFIGS, GREY, GROUPS, ORANGE,
                              aggregate_across_obs, build_model, load_observations,
                              mean_of_dicts, plot_overlay, resolve_grid,
                              run_compare_config, run_sweep_config)

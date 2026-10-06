@@ -10,7 +10,7 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPORT="$DIR/../../x-navdp/eval/scripts/report_eval_metrics.py"
+REPORT="$DIR/../../baselines/x-navdp/eval/scripts/report_eval_metrics.py"
 
 if [[ $# -lt 2 ]]; then
   echo "usage: bash compare_eval.sh <baseline_eval_dir> <direct_eval_dir>" >&2

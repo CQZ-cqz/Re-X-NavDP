@@ -2,7 +2,7 @@
 
 Replaces the former per-workflow scripts under ``FM_distillation/scripts/``.
 Every workflow is reachable as ``python -m FM_distillation.cli <stage> ...``;
-the library logic lives in ``FM_distillation.core``.
+the library logic lives in ``FM_distillation.src``.
 """
 
 # Bootstrap so ``python FM_distillation/cli.py`` works from any cwd, before the
@@ -10,7 +10,7 @@ the library logic lives in ``FM_distillation.core``.
 import sys
 from pathlib import Path as _Path
 _ROOT = _Path(__file__).resolve().parents[1]
-_BASE = _ROOT / "x-navdp"
+_BASE = _ROOT / "baselines/x-navdp"
 for _p in (_ROOT, _BASE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
@@ -42,8 +42,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from rexnavdp import BASE, ROOT
-from FM_distillation.core import (capture, dataset, evaluation, joint, labeling,
-                                  merging, rtc, scheduling, storage, training)
+from FM_distillation.src import (capture, dataset, evaluation, fm_dual, joint,
+                                  labeling, merging, rtc, scheduling, storage, training)
 
 CLI_PATH = _Path(__file__).resolve()
 
@@ -93,7 +93,7 @@ def cmd_dataset():
 # collect-full (collect_fm_full)
 # --------------------------------------------------------------------------- #
 def cmd_collect_full():
-    from FM_distillation.core.fm_data import sha256
+    from FM_distillation.src.fm_data import sha256
     p = argparse.ArgumentParser(description="Capture-only sequential GPU-1 scene sweep.")
     p.add_argument("--output", required=True, help="explicit disk location, preferably a data volume")
     p.add_argument("--scope", choices=("train", "train-validation"), default="train-validation")
@@ -134,7 +134,7 @@ def cmd_collect_full():
                     checkpoint=args.checkpoint, teacher_sha256=sha256(args.checkpoint),
                     seed=args.seed, physical_gpu=1, source_sha256=dataset.code_hashes(),
                     collector_sha256=capture.digest(CLI_PATH),
-                    split_sha256=capture.digest(BASE / "../FM_distillation/config/fm_scene_split.json"))
+                    split_sha256=capture.digest(BASE / "../../FM_distillation/config/fm_scene_split.json"))
         if (root / "collection_manifest.json").exists():
             if json.loads((root / "collection_manifest.json").read_text()) != plan:
                 raise RuntimeError("collection configuration/code changed; use new output root")
@@ -181,7 +181,7 @@ def cmd_collect_full():
 # collect-dual (collect_fm_dual)
 # --------------------------------------------------------------------------- #
 def cmd_collect_dual():
-    from FM_distillation.core.fm_data import sha256
+    from FM_distillation.src.fm_data import sha256
     p = argparse.ArgumentParser(description="Adopt an existing capture collection across two GPUs.")
     p.add_argument("--output", required=True, help="existing single-GPU collection root")
     p.add_argument("--execute", action="store_true")
@@ -221,7 +221,7 @@ def cmd_collect_dual():
         session.mkdir(parents=True)
         dataset.dump(session / "session.json", dict(legacy_manifest_sha256=capture.digest(root / "collection_manifest.json"),
             source_sha256=capture.code_hashes(), runner_sha256=capture.digest(CLI_PATH),
-            capture_helper_sha256=capture.digest(BASE / "../FM_distillation/core/capture.py"),
+            capture_helper_sha256=capture.digest(BASE / "../../FM_distillation/src/capture.py"),
             original_teacher_sha256=plan["teacher_sha256"], gpus=args.gpus, num_envs_per_gpu=1,
             ports=[args.port_base + gpu for gpu in args.gpus], args=vars(args),
             note="scheduler migration; legacy manifest retained; each new attempt snapshots current sources"))
@@ -374,7 +374,7 @@ def cmd_collect_joint_train():
     original_evaluate = dataset.evaluate
 
     def sources():
-        return {**original_sources(), "../FM_distillation/core/joint.py": storage.digest(BASE / "../FM_distillation/core/joint.py")}
+        return {**original_sources(), "../../FM_distillation/src/joint.py": storage.digest(BASE / "../../FM_distillation/src/joint.py")}
 
     def prepare(run, row, plan):
         meta = original_prepare(run, row, plan)
@@ -437,7 +437,7 @@ def cmd_label_validation():
             storage.atomic_json(manifest, signature)
         dataset.select_physical_gpu(args.physical_gpu)
         import torch
-        from FM_distillation.core.fm_data import save_record
+        from FM_distillation.src.fm_data import save_record
         torch.set_num_threads(4)
         os.chdir(BASE)
         teacher, completed = None, []
@@ -632,7 +632,7 @@ def cmd_train_all_scenes():
             raise ValueError("use a fresh output directory, including when resuming")
         gpu_uuid = dataset.select_physical_gpu(args.physical_gpu)
         import torch
-        from FM_distillation.core.flow_generator import CompactFlowGenerator
+        from FM_distillation.src.flow_generator import CompactFlowGenerator
         torch.set_num_threads(4)
         os.chdir(BASE)
         snapshot, groups, cache = training.labeled_data(args)
@@ -641,7 +641,7 @@ def cmd_train_all_scenes():
         state_path = args.resume or args.init_checkpoint
         state = torch.load(state_path, map_location="cpu", weights_only=True)
         legacy_sources = training.source_hashes()
-        sources = {**legacy_sources, "../FM_distillation/core/training.py": storage.digest(CLI_PATH)}
+        sources = {**legacy_sources, "../../FM_distillation/src/training.py": storage.digest(CLI_PATH)}
         identity = dict(snapshot_sha256=storage.digest(args.snapshot),
                         labels_sha256=storage.digest(Path(args.labels) / "COMPLETE.json"),
                         teacher_sha256=snapshot["teacher_sha256"])
@@ -667,7 +667,7 @@ def cmd_train_all_scenes():
         torch.manual_seed(args.seed)
         teacher = training.load_teacher(snapshot, "cpu")
         model = CompactFlowGenerator(teacher, depth=4)
-        from FM_distillation.core.fm_backbone import backbone_meta
+        from FM_distillation.src.fm_backbone import backbone_meta
         teacher_state, teacher_meta = teacher.state_dict(), backbone_meta(teacher)
         del teacher
         model.load_state_dict(state["student"], strict=True)
@@ -706,7 +706,10 @@ def cmd_train_all_scenes():
                 candidates = torch.randint(8, (size,), generator=rng).tolist()
                 inputs = training.batch(cache, rows, candidates, "cuda:0")
                 data_time = time.perf_counter() - began
-                loss = model.flow_loss(**inputs, noise=torch.randn(size, 24, 3, generator=rng).to("cuda:0"),
+                noise = inputs.pop("initial_noise", None)
+                if noise is None:
+                    noise = torch.randn(size, 24, 3, generator=rng).to("cuda:0")
+                loss = model.flow_loss(**inputs, noise=noise,
                                        t=torch.rand(size, generator=rng).to("cuda:0"))
                 if not torch.isfinite(loss):
                     raise ValueError("nonfinite loss")
@@ -734,7 +737,7 @@ def cmd_train_all_scenes():
                     print(json.dumps(record, allow_nan=False), flush=True)
                 log.write(json.dumps(record, allow_nan=False) + "\n")
                 log.flush()
-        from FM_distillation.core.fm_backbone import export_deploy_checkpoint
+        from FM_distillation.src.fm_backbone import export_deploy_checkpoint
         export_deploy_checkpoint(model, teacher_state, teacher_meta, signature, output / "deploy.pt")
         print(f"Deploy checkpoint written: {output / 'deploy.pt'}", flush=True)
         storage.atomic_json(output / "COMPLETE.json", dict(step=args.steps, best_val_loss=best, elapsed_s=time.perf_counter() - wall))
@@ -763,10 +766,19 @@ def cmd_train_all_candidates():
     p.add_argument("--val-per-scene", type=int, default=128)
     p.add_argument("--log-every", type=int, default=25)
     p.add_argument("--seed", type=int, default=17)
+    p.add_argument("--dist-lambda-mu", type=float, default=0.0,
+                   help="distribution-loss mean-matching weight (0 disables)")
+    p.add_argument("--dist-lambda-sigma", type=float, default=0.0,
+                   help="distribution-loss spread-matching weight (0 disables)")
+    p.add_argument("--dist-rows", type=int, default=4, help="rows sampled for the distribution loss")
+    p.add_argument("--dist-steps", type=int, default=4, help="Euler steps for the distribution-loss samples")
     args = p.parse_args()
     if min(args.steps, args.per_scene, args.candidate_microbatch, args.eval_every,
-           args.val_per_scene, args.log_every) < 1 or not 0 < args.min_lr <= args.lr < 1:
+           args.val_per_scene, args.log_every, args.dist_rows, args.dist_steps) < 1 or \
+       not 0 < args.min_lr <= args.lr < 1:
         p.error("positive counts and 0 < min-lr <= lr < 1 required")
+    if args.dist_lambda_mu < 0 or args.dist_lambda_sigma < 0:
+        p.error("distribution-loss lambdas must be nonnegative")
     if args.snapshot and not args.labels:
         p.error("--labels required with --snapshot")
     for name in ("snapshot", "labels", "dataset", "output", "init_checkpoint", "resume"):
@@ -779,7 +791,7 @@ def cmd_train_all_candidates():
             raise ValueError("use a fresh output directory, including when resuming")
         gpu_uuid = dataset.select_physical_gpu(args.physical_gpu)
         import torch
-        from FM_distillation.core.flow_generator import CompactFlowGenerator
+        from FM_distillation.src.flow_generator import CompactFlowGenerator
         torch.set_num_threads(4)
         os.chdir(BASE)
         if args.dataset:
@@ -791,7 +803,7 @@ def cmd_train_all_candidates():
         state_path = args.resume or args.init_checkpoint
         state = torch.load(state_path, map_location="cpu", weights_only=True)
         sources = {**training.source_hashes(),
-                   "../FM_distillation/core/training.py": storage.digest(BASE / "../FM_distillation/core/training.py")}
+                   "../../FM_distillation/src/training.py": storage.digest(BASE / "../../FM_distillation/src/training.py")}
         if args.dataset:
             identity = dict(dataset_sha256=storage.digest(Path(args.dataset) / "snapshot.json"),
                             dataset_complete_sha256=storage.digest(Path(args.dataset) / "COMPLETE.json"),
@@ -807,6 +819,8 @@ def cmd_train_all_candidates():
             "trajectory_batch": size * 8, "candidate_microbatch": args.candidate_microbatch,
             "lr": args.lr, "min_lr": args.min_lr, "schedule": "cosine_new_stage",
             "total_steps": args.steps, "seed": args.seed,
+            "dist_lambda_mu": args.dist_lambda_mu, "dist_lambda_sigma": args.dist_lambda_sigma,
+            "dist_rows": args.dist_rows, "dist_steps": args.dist_steps,
             "eval_every": args.eval_every, "val_per_scene": args.val_per_scene}
         if args.resume:
             if state["signature"] != signature:
@@ -826,7 +840,7 @@ def cmd_train_all_candidates():
         torch.manual_seed(args.seed)
         teacher = training.load_teacher(snapshot, "cpu")
         model = CompactFlowGenerator(teacher, depth=4)
-        from FM_distillation.core.fm_backbone import backbone_meta
+        from FM_distillation.src.fm_backbone import backbone_meta
         teacher_state, teacher_meta = teacher.state_dict(), backbone_meta(teacher)
         del teacher
         model.load_state_dict(state["student"], strict=True)
@@ -867,6 +881,15 @@ def cmd_train_all_candidates():
                 data_time = time.perf_counter() - began
                 errors, times = training.all_candidate_loss(model, data, "cuda:0", rng,
                                                             args.candidate_microbatch, backward=True)
+                dist_loss = None
+                if args.dist_lambda_mu > 0 or args.dist_lambda_sigma > 0:
+                    dist_rows = storage.sample_rows(groups, args.dist_rows, rng)
+                    dist_data = training.all_candidate_batch(cache, dist_rows)
+                    dist_loss = training.distribution_loss(model, dist_data, "cuda:0", candidates=8,
+                                                           steps=args.dist_steps,
+                                                           lambda_mu=args.dist_lambda_mu,
+                                                           lambda_sigma=args.dist_lambda_sigma)
+                    dist_loss.backward()
                 norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1., error_if_nonfinite=True)
                 optimizer.step()
                 record = dict(step=step, train_loss=errors.mean().item(), grad_norm=float(norm), lr=lr,
@@ -874,6 +897,8 @@ def cmd_train_all_candidates():
                     candidate_diagnostics=training.loss_diagnostics(errors, times, data["action_deltas"]),
                     scene_loss={s: errors[[i for i, r in enumerate(rows) if r["scene"] == s]].mean().item()
                                 for s in scenes})
+                if dist_loss is not None:
+                    record["dist_loss"] = float(dist_loss)
                 if step % args.eval_every == 0 or step == args.steps:
                     record["validation"] = training.evaluate_candidates(model, cache, selected, "cuda:0",
                                                                         args.seed + 1000, args.candidate_microbatch)
@@ -894,11 +919,77 @@ def cmd_train_all_candidates():
                     print(json.dumps(record, allow_nan=False), flush=True)
                 log.write(json.dumps(record, allow_nan=False) + "\n")
                 log.flush()
-        from FM_distillation.core.fm_backbone import export_deploy_checkpoint
+        from FM_distillation.src.fm_backbone import export_deploy_checkpoint
         export_deploy_checkpoint(model, teacher_state, teacher_meta, signature, output / "deploy.pt")
         print(f"Deploy checkpoint written: {output / 'deploy.pt'}", flush=True)
         storage.atomic_json(output / "COMPLETE.json", dict(step=args.steps, best_val_loss=best,
                                                            elapsed_s=time.perf_counter() - wall))
+
+
+# --------------------------------------------------------------------------- #
+# label-dual (dual-branch 4 pointgoal + 4 nogoal teacher labeling)
+# --------------------------------------------------------------------------- #
+def cmd_label_dual():
+    p = argparse.ArgumentParser(description="Offline dual-branch labeling: 4 pointgoal + 4 nogoal per observation.")
+    p.add_argument("--snapshot", required=True)
+    p.add_argument("--output", required=True)
+    p.add_argument("--physical-gpu", type=int, choices=(0, 1), default=1)
+    p.add_argument("--seed", type=int, default=17)
+    args = p.parse_args()
+    for name in ("snapshot", "output"):
+        setattr(args, name, str(Path(getattr(args, name)).resolve()))
+    dataset.select_physical_gpu(args.physical_gpu)
+    import torch
+    torch.set_num_threads(4)
+    os.chdir(BASE)
+    fm_dual.label_dual(args)
+
+
+# --------------------------------------------------------------------------- #
+# train-dual (dual-branch CFM: beta*Q-weighted pointgoal + alpha*equal nogoal)
+# --------------------------------------------------------------------------- #
+def cmd_train_dual():
+    p = argparse.ArgumentParser(description="Dual-branch CFM: beta*(mild Q-weighted pointgoal) + alpha*(equal nogoal).")
+    data = p.add_mutually_exclusive_group(required=True)
+    data.add_argument("--snapshot", help="merge-labels snapshot; requires --labels")
+    data.add_argument("--dataset", help="merge-success mixed dataset root")
+    p.add_argument("--labels", help="labels dir (required with --snapshot)")
+    p.add_argument("--output", required=True)
+    p.add_argument("--physical-gpu", type=int, choices=(0, 1), default=1)
+    p.add_argument("--seed", type=int, default=17)
+    p.add_argument("--steps", type=int, default=10000)
+    p.add_argument("--microbatch", type=int, default=8)
+    p.add_argument("--candidate-microbatch", type=int, default=160)
+    p.add_argument("--accumulate", type=int, default=4)
+    p.add_argument("--lr", type=float, default=1e-4)
+    p.add_argument("--beta", type=float, default=0.7)
+    p.add_argument("--alpha", type=float, default=0.3)
+    p.add_argument("--q-lambda", type=float, default=0.2)
+    p.add_argument("--temperature", type=float, default=0.2)
+    p.add_argument("--eval-every", type=int, default=500)
+    p.add_argument("--log-every", type=int, default=25)
+    p.add_argument("--val-per-scene", type=int, default=32)
+    args = p.parse_args()
+    if args.snapshot and not args.labels:
+        p.error("--labels required with --snapshot")
+    for name in ("steps", "microbatch", "candidate_microbatch", "accumulate",
+                 "eval_every", "log_every", "val_per_scene"):
+        if getattr(args, name) < 1:
+            p.error(f"{name} must be positive")
+    if not 0 < args.lr < 1:
+        p.error("lr must be in (0,1)")
+    if args.beta < 0 or args.alpha < 0 or (args.beta + args.alpha) <= 0:
+        p.error("beta/alpha must be nonnegative and not both zero")
+    if not 0 <= args.q_lambda < 1 or args.temperature <= 0:
+        p.error("q-lambda in [0,1) and positive temperature required")
+    for name in ("snapshot", "labels", "dataset", "output"):
+        if getattr(args, name):
+            setattr(args, name, str(Path(getattr(args, name)).resolve()))
+    dataset.select_physical_gpu(args.physical_gpu)
+    import torch
+    torch.set_num_threads(4)
+    os.chdir(BASE)
+    fm_dual.train_dual(args)
 
 
 # --------------------------------------------------------------------------- #
@@ -1084,7 +1175,7 @@ def cmd_eval_rtc():
             physical_gpu=args.physical_gpu, rtc=rtc_on, rtc_beta=args.rtc_beta, record_num=0,
             runner_sha256=storage.digest(evaluation.__file__),
             rtc_source_sha256={name: storage.digest(BASE / name) for name in
-                               ("../FM_distillation/core/evaluation.py", "../FM_distillation/core/rtc.py")},
+                               ("../../FM_distillation/src/evaluation.py", "../../FM_distillation/src/rtc.py")},
             code_sha256=dataset.code_hashes(),
             guidance="flow endpoint VJP; beta-clipped coefficient; legacy XY prefix and 9*(1-t)<=guidance_step")
     else:
@@ -1094,7 +1185,7 @@ def cmd_eval_rtc():
             physical_gpu=args.physical_gpu, rtc=rtc_on, rtc_beta=args.rtc_beta, record_num=0,
             runner_sha256=storage.digest(evaluation.__file__),
             rtc_source_sha256={name: storage.digest(BASE / name) for name in
-                               ("../FM_distillation/core/evaluation.py", "../FM_distillation/core/rtc.py")},
+                               ("../../FM_distillation/src/evaluation.py", "../../FM_distillation/src/rtc.py")},
             code_sha256=dataset.code_hashes(),
             guidance="flow endpoint VJP; beta-clipped coefficient; legacy XY prefix and 9*(1-t)<=guidance_step")
     if args.compare_off:
@@ -1206,7 +1297,7 @@ def cmd_queue():
     for scene in ("easy_5", "hard_5"):
         evaluation.read_completed(off, scene)
     sources = {str(BASE / name): storage.digest(BASE / name) for name in
-               ("../FM_distillation/core/rtc.py", "../FM_distillation/core/evaluation.py")}
+               ("../../FM_distillation/src/rtc.py", "../../FM_distillation/src/evaluation.py")}
     pinned = {**sources, str(config_path): storage.digest(config_path), str(student): storage.digest(student),
               str(off / "evaluation_manifest.json"): storage.digest(off / "evaluation_manifest.json")}
     queue_dir = output.with_name(output.name + "_queue")
@@ -1271,9 +1362,9 @@ def cmd_bench():
     uuid_val = dataset.select_physical_gpu(args.physical_gpu)
     import numpy as np
     import torch
-    from ddim.core.entry import load_observations, build_model
-    from FM_distillation.core.flow_generator import CompactFlowGenerator, generate_and_rank
-    from ddim.core.diffusion_sampling import sampling_timesteps
+    from ddim.src.entry import load_observations, build_model
+    from FM_distillation.src.flow_generator import CompactFlowGenerator, generate_and_rank
+    from ddim.src.diffusion_sampling import sampling_timesteps
     torch.set_num_threads(args.threads)
     records = load_observations(SimpleNamespace(observations=[args.observations], max_observations=args.count))
     if any(r["prev_action"] is None for r in records):
@@ -1380,8 +1471,8 @@ def cmd_export_deploy():
     p.add_argument("--time-scale", type=float, default=9.0)
     args = p.parse_args()
     import torch
-    from FM_distillation.core.flow_generator import CompactFlowGenerator
-    from FM_distillation.core.fm_backbone import backbone_meta, export_deploy_checkpoint
+    from FM_distillation.src.flow_generator import CompactFlowGenerator
+    from FM_distillation.src.fm_backbone import backbone_meta, export_deploy_checkpoint
     from bridge.teacher_adapter import load_checkpoint
 
     state = torch.load(args.student, map_location="cpu", weights_only=True)
@@ -1417,6 +1508,8 @@ STAGES = {
     "train": cmd_train,
     "train-all-scenes": cmd_train_all_scenes,
     "train-all-candidates": cmd_train_all_candidates,
+    "label-dual": cmd_label_dual,
+    "train-dual": cmd_train_dual,
     "export-deploy": cmd_export_deploy,
     "eval-closed-loop": cmd_eval_closed_loop,
     "eval-rtc": cmd_eval_rtc,
@@ -1439,6 +1532,8 @@ stages:
   train               freeze / label / train / rank (base offline FM)
   train-all-scenes    every optimizer update includes every train scene
   train-all-candidates all-scene, all-eight-candidate CFM
+  label-dual          4 pointgoal + 4 nogoal teacher labeling
+  train-dual          beta*Q-weighted pointgoal + alpha*equal nogoal CFM
   eval-closed-loop    FM + frozen Q + recovery/MPC, no RTC
   eval-rtc            FM trajectory RTC evaluation
   queue               wait for training + idle GPU, then run RTC eval

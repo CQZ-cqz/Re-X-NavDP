@@ -86,7 +86,7 @@ def fm_rtc_agent_class(student_path, teacher_sha256, beta=5.):
     import types
     import torch
     from eval.src.policy_agent import NavDP_Agent
-    from FM_distillation.core.flow_generator import CompactFlowGenerator, generate_and_rank
+    from FM_distillation.src.flow_generator import CompactFlowGenerator, generate_and_rank
     class FMAgent(NavDP_Agent):
         def __init__(self,*a,**kw):
             super().__init__(*a,**kw)

@@ -4,7 +4,7 @@
 import sys as _rex_sys
 from pathlib import Path as _RexPath
 _REX_ROOT = _RexPath(__file__).resolve().parents[1]
-_REX_BASE = _REX_ROOT / "x-navdp"
+_REX_BASE = _REX_ROOT / "baselines/x-navdp"
 for _rex_path in (_REX_ROOT, _REX_BASE):
     if str(_rex_path) not in _rex_sys.path:
         _rex_sys.path.insert(0, str(_rex_path))
@@ -15,11 +15,11 @@ import numpy as np
 import torch
 import yaml
 from dataclasses import asdict
-from rl.core.actions import ActionLimits, DirectLimits
-from rl.core.encoder import build_rgbd_encoder, resolve_policy_visual_config
-from rl.core.policy import PolicyConfig, ReactiveActorCritic
-from rl.core.runner import load_policy, CONTROL_MODE_DIRECT
-from rl.core.runtime import LatestRGBDWorker, ReactiveExecutor, DirectReactiveExecutor
+from rl.src.actions import ActionLimits, DirectLimits
+from rl.src.encoder import build_rgbd_encoder, resolve_policy_visual_config
+from rl.src.policy import PolicyConfig, ReactiveActorCritic
+from rl.src.runner import load_policy, CONTROL_MODE_DIRECT
+from rl.src.runtime import LatestRGBDWorker, ReactiveExecutor, DirectReactiveExecutor
 
 
 def _inference_policy_config(config):

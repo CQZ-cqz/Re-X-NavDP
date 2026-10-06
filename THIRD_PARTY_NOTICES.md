@@ -1,8 +1,8 @@
 # Attribution and third-party components
 
 This is independent downstream development based on X-NavDP in InternRobotics/NavDP.
-Original attribution and citation remain in `x-navdp/README.md`, `x-navdp/CITATION.cff`,
-`x-navdp/LICENSE` and `x-navdp/THIRD_PARTY_NOTICES.md`.
+Original attribution and citation remain in `baselines/x-navdp/README.md`, `baselines/x-navdp/CITATION.cff`,
+`baselines/x-navdp/LICENSE` and `baselines/x-navdp/THIRD_PARTY_NOTICES.md`.
 
 The original X-NavDP MIT notice is preserved; it is not a statement that all
 vendored components, external simulator assets, model weights or this combined

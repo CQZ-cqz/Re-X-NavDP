@@ -14,9 +14,9 @@ import subprocess
 import sys
 import time
 
-from FM_distillation.core.storage import atomic_json, digest, read_json, writer_lock
-from FM_distillation.core import dataset as fm_dataset
-from FM_distillation.core.evaluation import read_completed
+from FM_distillation.src.storage import atomic_json, digest, read_json, writer_lock
+from FM_distillation.src import dataset as fm_dataset
+from FM_distillation.src.evaluation import read_completed
 
 
 def gpu_compute_pids(index):

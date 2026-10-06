@@ -2,7 +2,7 @@
 # Unified pointgoal evaluation: switch between the MPC baseline and the RL direct tracker.
 #
 # The repository has two independent execution modes for the same pointgoal task:
-#   * baseline — the original X-NavDP planner + MPC teacher (x-navdp/eval).
+#   * baseline — the original X-NavDP planner + MPC teacher (baselines/x-navdp/eval).
 #   * direct   — the distilled RL direct tracker that outputs (v, omega) without MPC.
 #
 # Usage:
@@ -18,7 +18,7 @@ MODE="${EVAL_MODE:-baseline}"
 
 case "$MODE" in
   baseline)
-    exec bash "$DIR/../../x-navdp/eval/scripts/run_evaluation.sh" "$@"
+    exec bash "$DIR/../../baselines/x-navdp/eval/scripts/run_evaluation.sh" "$@"
     ;;
   direct)
     exec bash "$DIR/run_direct_eval.sh" "$@"

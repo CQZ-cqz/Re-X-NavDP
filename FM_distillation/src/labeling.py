@@ -12,7 +12,7 @@ import time
 import numpy as np
 import torch
 
-from FM_distillation.core.fm_data import save_record, sha256, teacher_tap, validate_label
+from FM_distillation.src.fm_data import save_record, sha256, teacher_tap, validate_label
 
 
 @contextmanager
@@ -106,7 +106,7 @@ def shared_label(model, obs, src, rgbd, goal, teacher_hash, observation_hash, se
 
 
 def joint_agent_class(run, manifest, audit_every=100):
-    from FM_distillation.core.fm_capture_agent import recording_agent_class
+    from FM_distillation.src.fm_capture_agent import recording_agent_class
     recording = recording_agent_class(run,manifest)
     class JointAgent(recording):
         def _save_observation(self,*args,**kwargs):

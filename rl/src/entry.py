@@ -5,7 +5,7 @@ ROOT = BASE  # x-navdp baseline directory
 
 """MPC-free direct tracker (ReX-NavDP) training on training-split scenes.
 
-Mirrors ../rl/scripts/train_reactive.py but the policy directly commands [v, w]:
+Mirrors ../../rl/scripts/train_reactive.py but the policy directly commands [v, w]:
 this script never imports or constructs BatchMPCController, so the direct
 run has no Acados solver and no libhpipm dependency at runtime.
 """
@@ -102,7 +102,7 @@ def reactive_training_scene(cfg, index):
 
 """Collect BC across all home_train scenes, then merge into one dataset.
 
-Runs ../rl/scripts/collect_direct_bc.py once per scene (N episodes each) as separate
+Runs ../../rl/scripts/collect_direct_bc.py once per scene (N episodes each) as separate
 Isaac processes (one clean app per scene), is idempotent (skips scene .pt files
 already present), and concatenates the per-scene episodes into a single .pt that
 train_direct_bc.py consumes.
@@ -456,9 +456,9 @@ and the 25 Hz control-deadline (40 ms) miss rate.
 
 Run once per backend and compare the "visual total" rows:
 
-    python ../rl/scripts/benchmark_visual_encoder.py --backend dav2 \
+    python ../../rl/scripts/benchmark_visual_encoder.py --backend dav2 \
         --checkpoint checkpoints/x-navdp_posttrain.ckpt
-    python ../rl/scripts/benchmark_visual_encoder.py --backend yolo26_depth \
+    python ../../rl/scripts/benchmark_visual_encoder.py --backend yolo26_depth \
         --weights checkpoints/yolo26n-depth.pt
 
 Same GPU / batch / input resolution / warm-up / runs gives an apples-to-apples
@@ -476,9 +476,9 @@ import numpy as np
 import torch
 
 
-from rl.core.encoder import (build_rgbd_encoder, resolve_policy_visual_config,
+from rl.src.encoder import (build_rgbd_encoder, resolve_policy_visual_config,
                                   preprocess_yolo_rgb)
-from rl.core.policy import PolicyConfig, ReactiveActorCritic
+from rl.src.policy import PolicyConfig, ReactiveActorCritic
 
 
 def percentile(samples, p):

@@ -9,7 +9,7 @@ without loading vision weights or touching the GPU.
 import sys as _rex_sys
 from pathlib import Path as _RexPath
 _REX_ROOT = _RexPath(__file__).resolve().parents[1]
-_REX_BASE = _REX_ROOT / "x-navdp"
+_REX_BASE = _REX_ROOT / "baselines/x-navdp"
 for _rex_path in (_REX_ROOT, _REX_BASE):
     if str(_rex_path) not in _rex_sys.path:
         _rex_sys.path.insert(0, str(_rex_path))
@@ -20,7 +20,7 @@ from unittest.mock import patch
 import numpy as np
 import torch
 
-from FM_distillation.core.fm_backbone import fm_deploy_agent_class, DeployPolicy
+from FM_distillation.src.fm_backbone import fm_deploy_agent_class, DeployPolicy
 
 
 class DeployAgentTests(unittest.TestCase):
@@ -35,7 +35,7 @@ class DeployAgentTests(unittest.TestCase):
                 self.rtc_enabled, self.beta = rtc_enabled, beta
 
         with patch("eval.src.policy_agent.NavDP_Agent", Agent), \
-             patch("FM_distillation.core.fm_backbone.DeployPolicy", FakeDeploy):
+             patch("FM_distillation.src.fm_backbone.DeployPolicy", FakeDeploy):
             cls = fm_deploy_agent_class("/tmp/deploy.pt", rtc_enabled=True, beta=7.0)
             navi = cls()._build_navi_former(navi_model="ignored-posttrain", **{})
         self.assertIsInstance(navi, FakeDeploy)
@@ -74,8 +74,8 @@ class DeployAgentTests(unittest.TestCase):
                 np.zeros((1, 3)), None, None, sample_num=4)
 
     def test_labeled_mixed_data_delegates_to_loader(self):
-        from FM_distillation.core.training import labeled_mixed_data
-        with patch("FM_distillation.core.merging.load_mixed_dataset",
+        from FM_distillation.src.training import labeled_mixed_data
+        with patch("FM_distillation.src.merging.load_mixed_dataset",
                    return_value=("snap", "groups", "cache")):
             self.assertEqual(labeled_mixed_data("/tmp/mixed"), ("snap", "groups", "cache"))
 

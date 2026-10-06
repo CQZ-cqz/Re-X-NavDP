@@ -2,7 +2,7 @@
 
 The distilled ``CompactFlowGenerator`` replaces only the diffusion decoder. Full
 inference still needs the teacher's RGB-D encoder, goal encoder, dual-Q critic
-and B-spline smoothing. These are copied from ``x-navdp/eval/src`` so a single
+and B-spline smoothing. These are copied from ``baselines/x-navdp/eval/src`` so a single
 deploy checkpoint (student + this backbone) runs without the posttrain weights.
 """
 
@@ -276,7 +276,7 @@ class FMPolicy(nn.Module):
 
     def __init__(self, checkpoint, device="cuda:0", depth=4, time_scale=9.0):
         super().__init__()
-        from FM_distillation.core.flow_generator import CompactFlowGenerator, generate_and_rank
+        from FM_distillation.src.flow_generator import CompactFlowGenerator, generate_and_rank
         self._generate_and_rank = generate_and_rank
         state = torch.load(checkpoint, map_location="cpu", weights_only=True)
         meta = state["backbone_meta"]
@@ -353,7 +353,7 @@ class DeployPolicy(FMPolicy):
         sampler = self.student
         stats = {}
         if self.rtc_enabled:
-            from FM_distillation.core.rtc import sample_with_rtc
+            from FM_distillation.src.rtc import sample_with_rtc
 
             class GuidedView:
                 training = False

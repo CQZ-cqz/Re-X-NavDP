@@ -1,10 +1,10 @@
-"""Run from x-navdp: python -m unittest discover -s tests -p 'test_recovery*.py'."""
+"""Run from baselines/x-navdp: python -m unittest discover -s tests -p 'test_recovery*.py'."""
 
 # Relocation bootstrap: resolve only within this independent repository.
 import sys as _rex_sys
 from pathlib import Path as _RexPath
 _REX_ROOT = _RexPath(__file__).resolve().parents[1]
-_REX_BASE = _REX_ROOT / "x-navdp"
+_REX_BASE = _REX_ROOT / "baselines/x-navdp"
 for _rex_path in (_REX_ROOT, _REX_BASE):
     if str(_rex_path) not in _rex_sys.path:
         _rex_sys.path.insert(0, str(_rex_path))

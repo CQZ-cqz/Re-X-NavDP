@@ -1,2 +1,2 @@
 # Baseline simulator dependencies still require the upstream setup instructions.
--r x-navdp/requirements.txt
+-r baselines/x-navdp/requirements.txt

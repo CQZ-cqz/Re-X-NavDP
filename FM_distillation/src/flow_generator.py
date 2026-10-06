@@ -117,14 +117,7 @@ class CompactFlowGenerator(nn.Module):
         prediction = self(x, t, goal_embed.detach(), rgbd_embed.detach(), embodiment)
         return F.mse_loss(prediction, target-noise)
 
-    @torch.no_grad()
-    def sample(self, goal_embed, rgbd_embed, embodiment=0, *, candidates=8,
-               steps=4, initial_noise=None):
-        """Euler integrate 0 -> 1. Returns RAW deltas [B,K,24,3], no clamp/RTC."""
-        if self.training:
-            raise RuntimeError("call eval() before sampling")
-        if not isinstance(steps, int) or not isinstance(candidates, int) or min(steps, candidates) < 1:
-            raise ValueError("steps/candidates must be positive integers")
+    def _euler_sample(self, goal_embed, rgbd_embed, embodiment, candidates, steps, initial_noise):
         batch = goal_embed.shape[0]
         shape = (batch, candidates, self.predict_size, 3)
         if initial_noise is None:
@@ -140,6 +133,23 @@ class CompactFlowGenerator(nn.Module):
         for i in range(steps):
             x = x + self(x, i/steps, goal, rgbd, idx)/steps
         return x.reshape(shape)
+
+    @torch.no_grad()
+    def sample(self, goal_embed, rgbd_embed, embodiment=0, *, candidates=8,
+               steps=4, initial_noise=None):
+        """Euler integrate 0 -> 1. Returns RAW deltas [B,K,24,3], no clamp/RTC."""
+        if self.training:
+            raise RuntimeError("call eval() before sampling")
+        if not isinstance(steps, int) or not isinstance(candidates, int) or min(steps, candidates) < 1:
+            raise ValueError("steps/candidates must be positive integers")
+        return self._euler_sample(goal_embed, rgbd_embed, embodiment, candidates, steps, initial_noise)
+
+    def sample_with_grad(self, goal_embed, rgbd_embed, embodiment=0, *, candidates=8,
+                         steps=4, initial_noise=None):
+        """Differentiable Euler sampling (no @torch.no_grad) for auxiliary distribution losses."""
+        if not isinstance(steps, int) or not isinstance(candidates, int) or min(steps, candidates) < 1:
+            raise ValueError("steps/candidates must be positive integers")
+        return self._euler_sample(goal_embed, rgbd_embed, embodiment, candidates, steps, initial_noise)
 
 
 @torch.no_grad()

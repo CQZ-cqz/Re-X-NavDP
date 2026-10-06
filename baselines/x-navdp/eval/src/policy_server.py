@@ -78,7 +78,7 @@ def init_app(
     TimedStuckDetector(stuck_window_s, stuck_distance_m)
     stuck_config = dict(stuck_mode=stuck_mode, stuck_window_s=stuck_window_s, stuck_distance_m=stuck_distance_m)
     print(f"Stuck detection: {stuck_config}", flush=True)
-    from ddim.core.diffusion_sampling import sampling_timesteps
+    from ddim.src.diffusion_sampling import sampling_timesteps
     timesteps = sampling_timesteps(sampler, inference_steps, ddim_eta)
     sampling_config = dict(sampler=sampler, inference_steps=inference_steps,
                            ddim_eta=ddim_eta, rtc_enabled=rtc_enabled)

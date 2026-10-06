@@ -23,7 +23,7 @@ import subprocess
 import sys
 import time
 
-from FM_distillation.core.dataset import code_hashes, dump
+from FM_distillation.src.dataset import code_hashes, dump
 
 
 def digest(path):
@@ -31,7 +31,7 @@ def digest(path):
 
 
 def scene_assignments(include_reserved=False):
-    assignments = json.loads((BASE/"../FM_distillation/config/fm_scene_split.json").read_text())
+    assignments = json.loads((BASE/"../../FM_distillation/config/fm_scene_split.json").read_text())
     if include_reserved:
         assignments["train"] += assignments["reserved"]
         assignments["reserved"] = []
@@ -78,7 +78,7 @@ def completed_metrics(run, expected):
 
 def index_observations(run, row, cancel=None):
     """CPU-only schema pass and immutable source index after scene completion."""
-    from FM_distillation.core.fm_data import load_record, validate_observation, sha256
+    from FM_distillation.src.fm_data import load_record, validate_observation, sha256
     metrics, metric_path = completed_metrics(run,row["episodes"])
     manifest = json.loads((run/"manifest.json").read_text())
     by_id = {int(m["episode_idx"]):m for m in metrics}
@@ -139,7 +139,7 @@ def capture_scene(root,row,args,env):
     while (parent/f"attempt_{number:03d}").exists():
         number += 1
     run = parent/f"attempt_{number:03d}"
-    command = [sys.executable,str(BASE/"../FM_distillation/cli.py"),"dataset"]
+    command = [sys.executable,str(BASE/"../../FM_distillation/cli.py"),"dataset"]
     gpu_flags = ["--physical-gpu",str(getattr(args,"physical_gpu",0))]
     subprocess.run(command+["prepare","--run",str(run),"--checkpoint",args.checkpoint,
         "--config",row["config"],"--scene",row["scene"],"--split",row["split"],"--seed",str(args.seed),
@@ -211,7 +211,7 @@ import sys
 import threading
 import uuid
 
-from FM_distillation.core.dataset import code_hashes, dump
+from FM_distillation.src.dataset import code_hashes, dump
 
 
 @contextmanager
@@ -229,7 +229,7 @@ def exclusive(path):
 
 def check_policy_sources(original,current):
     # This is an explicit scheduler migration, not a blanket ignore-hash switch.
-    allowed = {"../FM_distillation/core/dataset.py"}
+    allowed = {"../../FM_distillation/src/dataset.py"}
     changed = [p for p in set(original)|set(current) if p not in allowed and original.get(p)!=current.get(p)]
     if changed:
         raise RuntimeError(f"non-scheduler source changes since original capture: {sorted(changed)}")

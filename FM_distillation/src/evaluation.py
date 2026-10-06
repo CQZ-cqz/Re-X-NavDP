@@ -18,15 +18,15 @@ import sys
 import time
 import types
 
-from FM_distillation.core.storage import atomic_json, digest, read_json, writer_lock
-from FM_distillation.core.capture import stop_process, completed_metrics
-from FM_distillation.core import dataset as fm_dataset
+from FM_distillation.src.storage import atomic_json, digest, read_json, writer_lock
+from FM_distillation.src.capture import stop_process, completed_metrics
+from FM_distillation.src import dataset as fm_dataset
 
 
 def fm_agent_class(student_path, teacher_sha256):
     import torch
     from eval.src.policy_agent import NavDP_Agent
-    from FM_distillation.core.flow_generator import CompactFlowGenerator, generate_and_rank
+    from FM_distillation.src.flow_generator import CompactFlowGenerator, generate_and_rank
     class FMAgent(NavDP_Agent):
         def __init__(self,*a,**kw):
             super().__init__(*a,**kw)
@@ -71,7 +71,7 @@ def serve_closed_loop(args):
         state = torch.load(settings["deploy"], map_location="cpu", weights_only=True, mmap=True)
         if state["signature"]["teacher_sha256"] != meta["teacher_sha256"]:
             raise ValueError("deploy/teacher identity mismatch")
-        from FM_distillation.core.fm_backbone import fm_deploy_agent_class
+        from FM_distillation.src.fm_backbone import fm_deploy_agent_class
         policy_server.NavDP_Agent = fm_deploy_agent_class(settings["deploy"], rtc_enabled=False)
     else:
         if digest(settings["student"]) != settings["student_sha256"]:
@@ -96,9 +96,9 @@ import subprocess
 import sys
 import time
 
-from FM_distillation.core import dataset as fm_dataset
-from FM_distillation.core.storage import atomic_json, digest, read_json, writer_lock
-from FM_distillation.core.capture import stop_process, completed_metrics
+from FM_distillation.src import dataset as fm_dataset
+from FM_distillation.src.storage import atomic_json, digest, read_json, writer_lock
+from FM_distillation.src.capture import stop_process, completed_metrics
 
 
 def metric_summary(rows):
@@ -176,13 +176,13 @@ def serve_rtc(args):
         state = torch.load(settings["deploy"], map_location="cpu", weights_only=True, mmap=True)
         if state["signature"]["teacher_sha256"] != meta["teacher_sha256"]:
             raise ValueError("deploy/teacher identity mismatch")
-        from FM_distillation.core.fm_backbone import fm_deploy_agent_class
+        from FM_distillation.src.fm_backbone import fm_deploy_agent_class
         policy_server.NavDP_Agent = fm_deploy_agent_class(settings["deploy"],
             rtc_enabled=settings["rtc"], beta=settings["rtc_beta"])
     else:
         if digest(settings["student"]) != settings["student_sha256"]:
             raise ValueError("student changed")
-        from FM_distillation.core.rtc import fm_rtc_agent_class
+        from FM_distillation.src.rtc import fm_rtc_agent_class
         policy_server.NavDP_Agent = fm_rtc_agent_class(settings["student"],meta["teacher_sha256"],settings["rtc_beta"])
     policy_server.init_app("humanoid",no_visualization=True,device="cuda:0",checkpoint=meta["checkpoint"],
                            seed=meta["seed"],recovery="baseline",rtc_enabled=settings["rtc"])
