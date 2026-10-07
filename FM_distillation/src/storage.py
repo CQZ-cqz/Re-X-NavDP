@@ -5,6 +5,7 @@ Kept outside eval/src: adding training tooling must not invalidate live capture.
 
 from collections import OrderedDict, defaultdict
 from contextlib import contextmanager
+import ast
 import fcntl
 import hashlib
 import json
@@ -12,7 +13,7 @@ import os
 from pathlib import Path
 import tempfile
 
-from rexnavdp import BASE
+from rexnavdp import BASE, ROOT
 
 
 def digest(path):
@@ -55,7 +56,68 @@ def condition_hashes(hashes):
                              "../../bridge/", "../../rl/src/", "../../ddim/src/"))}
 
 
+# Network-defining sources of the FM teacher + student, keyed by a stable logical id
+# (path-independent). Only these modules define the encode -> decode -> score pipeline
+# whose identity must match the labels; orchestration (training/labeling/capture/loss/...)
+# is deliberately excluded so refactors and file moves do not invalidate snapshots.
+_NETWORK_FILES = {
+    "teacher_policy":   ["baselines/x-navdp/eval/src/policy_network_embodiment.py"],
+    "teacher_backbone": ["baselines/x-navdp/eval/src/policy_backbone.py"],
+    "depth_encoder":    ["third_party/depth_anything/depth_anything_v2"],
+    "ddim_decoder":     ["ddim/src/diffusion_sampling.py", "ddim/src/ddim_ddpm_metrics.py"],
+    "bridge_scoring":   ["bridge"],
+    "student":          ["FM_distillation/src/flow_generator.py"],
+    "student_backbone": ["FM_distillation/src/fm_backbone.py"],
+}
+
+
+def _normalized_ast(path):
+    """AST dump of a source file with comments, whitespace and docstrings removed.
+
+    ``ast.dump`` drops positions/comments and is insensitive to formatting; stripping
+    the leading docstring keeps the hash stable across docstring-only edits.
+    """
+    tree = ast.parse(Path(path).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            if (node.body and isinstance(node.body[0], ast.Expr)
+                    and isinstance(node.body[0].value, ast.Constant)
+                    and isinstance(node.body[0].value.value, str)):
+                node.body = node.body[1:]
+    return ast.dump(tree)
+
+
+def network_signature():
+    """Logical network component -> sha256 of its normalized source AST.
+
+    Keyed by component name rather than file path, so moving a file only requires
+    updating ``_NETWORK_FILES`` here — existing snapshots stay valid.
+    """
+    result = {}
+    for component, paths in _NETWORK_FILES.items():
+        dumps = []
+        for rel in paths:
+            path = ROOT / rel
+            if path.is_dir():
+                dumps.extend(_normalized_ast(p) for p in sorted(path.rglob("*.py")))
+            elif path.is_file():
+                dumps.append(_normalized_ast(path))
+            elif (BASE / rel).is_file():  # tolerate a source tree moved under BASE
+                dumps.append(_normalized_ast(BASE / rel))
+            else:
+                raise FileNotFoundError(f"network source not found: {rel}")
+        result[component] = hashlib.sha256("\n".join(dumps).encode("utf-8")).hexdigest()
+    return result
+
+
 def verify_code(snapshot):
+    if "network_signature" in snapshot:
+        current = network_signature()
+        if current != snapshot["network_signature"]:
+            changed = sorted(k for k in current if current[k] != snapshot["network_signature"].get(k))
+            raise ValueError(f"network structure changed: {changed or '?'}")
+        return
+    # Legacy snapshots predate the network signature; fall back to per-file bytes.
     for name, expected in snapshot["condition_sha256"].items():
         if digest(BASE / name) != expected:
             raise ValueError(f"teacher/condition source changed: {name}")
@@ -118,7 +180,8 @@ def freeze(collection, output, *, completed_only=False):
     result = dict(schema="fm_training_snapshot_v1", collection=str(root),
                   collection_sha256=digest(root / "collection_manifest.json"),
                   checkpoint=plan["checkpoint"], teacher_sha256=plan["teacher_sha256"],
-                  condition_sha256=conditions, scenes=scenes, skipped_incomplete=missing, records=records)
+                  condition_sha256=conditions, network_signature=network_signature(),
+                  scenes=scenes, skipped_incomplete=missing, records=records)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     # Exclusive publication: snapshots are never refreshed under the same name.

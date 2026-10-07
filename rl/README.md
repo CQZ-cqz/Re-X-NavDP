@@ -1,4 +1,9 @@
-# 学习型导航执行器
+# 实时感知导航执行器
+
+学习型低层执行器，用 RGB-D 实时感知直接输出 `(v, omega)` 执行导航。动机：
+
+- **实时避障**：端到端从感知直接出速度，替代「高层轨迹 → MPC 跟踪」的解耦链路。
+- **本体动力学**：MPC 只用运动学 unicycle 模型（`x,y,θ`）从参考轨迹解算 `(v,omega)`，不涉及本体动力学；RL 在仿真里端到端训练（reward 含 `fall`/`contact` 惩罚），可学习更贴合本体动力学的速度策略、减少摔倒。
 
 `src/` 是实际实现，支持 direct 和 residual 两种模式。`direct` 直接输出 `(v, omega)`，以替代 MPC 执行为目标；`residual` 仍依赖 MPC 名义命令，作为对照保留。
 
@@ -27,4 +32,4 @@
 - **BC 初始化**（`train-bc`）：actor 输出与教师命令的 MSE。
 - **PPO**（`train-tracker`/`train-full`）：RSL-RL 的 surrogate + value + entropy。
 
-根目录入口：`python run.py rl-collect --help`、`python run.py rl-bc --help`、`python run.py rl-train --help`、`python run.py rl-multiscene --help`、`python run.py rl-residual --help`、`python run.py rl-bench --help`。默认工作目录为 `baselines/x-navdp/`。不要将学习型导航速度执行表述为重新训练机器人步态或关节控制器。
+根目录入口：`python run.py rl-collect --help`、`python run.py rl-bc --help`、`python run.py rl-train --help`、`python run.py rl-multiscene --help`、`python run.py rl-residual --help`、`python run.py rl-bench --help`。默认工作目录为 `baselines/x-navdp/`。

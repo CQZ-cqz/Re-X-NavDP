@@ -2,9 +2,9 @@
 
 基于 [X-NavDP](https://github.com/InternRobotics/NavDP/tree/master/baselines/x-navdp) 的复现与二次开发。
 
-| 工作线 | 内容 | 主目录 |
+| 模块 | 内容 | 主目录 |
 | --- | --- | --- |
-| RL 执行 | 学习型导航执行，输出 `(v, omega)` 替代 MPC；MPC 教师 BC 初始化 + direct PPO | [rl](rl/README.md) |
+| RL  | 实时感知导航执行器，输出 `(v, omega)` 替代 MPC；MPC 教师 BC 初始化 + direct PPO | [rl](rl/README.md) |
 | FM 蒸馏 | 小型条件 Flow Matching 蒸馏教师扩散解码器；采集/标注/训练/闭环评估 | [FM_distillation](FM_distillation/README.md) |
 | DDIM | 原权重下 DDPM/DDIM 少步采样与时延对照 | [ddim](ddim/README.md) |
 
@@ -19,7 +19,7 @@
 
 ## 使用
 
-统一入口 `python run.py <command>`，每条工作线只有一个 `cli.py`。FM / DDIM 从仓库根运行；**RL 命令以 `baselines/x-navdp/` 为工作目录**（`scene_dir` 是相对路径）。
+统一入口 `python run.py <command>`，每条工作线只有一个 `cli.py`。FM / DDIM 从仓库根运行；**RL 命令以 `baselines/x-navdp/` 为工作目录**。
 
 ### FM 蒸馏
 
@@ -69,11 +69,11 @@ batch=1、8 候选、RTC on，GPU 1（RTX 4090），单位 ms：
 
 | 方法 | 平均 (ms) |
 | --- | --- |
-| DDPM10 | 363.17 |
-| DDIM5 | 190.85 |
-| FM4 | 64.74 |
+| DDPM-10steps-baseline | 363.17 |
+| DDIM-5steps | 190.85 |
+| Flow Matching-4steps | 64.74 |
 
-DDIM5 是实测较稳定的 DDPM 加速版本（5 步，约 2× 于 DDPM10）；FM4 约 5.6× 于 DDPM10。完整方法矩阵（含 P50/P95、RTC off）见 `fm-bench` 输出。
+DDIM-5steps 是实测较稳定的 baseline 加速版本（~ 2×）；FM4 ~ 5.6×。
 
 ## 目录
 
@@ -88,7 +88,7 @@ Re-X-NavDP/
 ├── checkpoints/       外部权重索引（见 checkpoints/README.md）
 ├── third_party/       依赖源码与各自许可证
 ├── tests/             回归测试
-└── run.py             根入口
+└── run.py             入口
 ```
 
 ## 测试
@@ -99,7 +99,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=.:baselines/x-navdp python -m unittest discov
 
 ## 引用与致谢
 
-本仓库是 [NavDP](https://github.com/InternRobotics/NavDP) 及其后续工作 [X-NavDP](https://github.com/InternRobotics/NavDP/tree/master/baselines/x-navdp) 的**个人学习**：三条工作线（RL 实时执行器、FM 候选生成器蒸馏、DDIM 少步采样）都建立在 NavDP / X-NavDP 的代码、场景与预训练权重之上。若本仓库对你的工作有帮助，请引用上游论文：
+本仓库是 [NavDP](https://github.com/InternRobotics/NavDP) 及其后续工作 [X-NavDP](https://github.com/InternRobotics/NavDP/tree/master/baselines/x-navdp) 的**个人学习**：三条工作线（RL 实时执行器、FM 候选生成器蒸馏、DDIM 少步采样）都建立在 NavDP / X-NavDP 的代码、场景与预训练权重之上。
 
 **NavDP**（基础导航扩散策略，本仓库权重与骨干的来源）
 

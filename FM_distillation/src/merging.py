@@ -290,5 +290,7 @@ def inventory(legacy,joint):
     result = dict(schema='fm_mixed_success_snapshot_v1',checkpoint=snap['checkpoint'],
         teacher_sha256=snap['teacher_sha256'],condition_sha256=snap['condition_sha256'],
         scenes=scene_reports,records=kept,source_pins=pins,policy=report['policy'])
+    if 'network_signature' in snap:
+        result['network_signature'] = snap['network_signature']
     return result,excluded,report
 
